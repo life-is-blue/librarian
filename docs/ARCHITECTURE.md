@@ -15,6 +15,12 @@ Primary target is a **personal private cloud knowledge service**:
 2. This repository CI prepares or refreshes markdown artifacts into `data-refined`.
 3. Librarian runtime serves those artifacts to agent clients via MCP.
 
+### 0.1.1 SSOT Target (Do Not Drift)
+
+1. Primary deployment model is VPS-hosted MCP for one owner.
+2. Agent clients should consume the remote MCP endpoint with local zero runtime dependency.
+3. SKILL integration is an orchestration layer above MCP tools, not a replacement for runtime contracts.
+
 ## 0.2 Out of Scope (This Repository)
 
 The following are intentionally outside this runtime codebase:

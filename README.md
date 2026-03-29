@@ -27,6 +27,14 @@ Personal private knowledge service for one owner:
 - This repository serves refined markdown to agents through MCP tools
 - Deployment target is a personal VPS/domain where multiple agent clients can connect
 
+## SSOT North Star
+
+To prevent scope drift, this repository keeps one explicit target:
+
+1. Run Librarian as a VPS-hosted MCP service so agent clients can use it with local zero runtime dependency (configuration only).
+2. Keep retrieval deterministic and traceable (`libraryId + path + line`), not vector-first.
+3. Add SKILL-level orchestration later to improve multi-step tool usage efficiency, without changing runtime truth boundaries.
+
 ## Philosophy
 
 1. **Navigate-First**: Filenames, headings, and line numbers are facts.
