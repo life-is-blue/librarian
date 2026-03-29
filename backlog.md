@@ -24,15 +24,26 @@ Core philosophy remains unchanged: navigation-first, progressive disclosure, tra
 | B1-2 | P1 | Add `grep-knowledge` filters (`pathPrefix`, `caseSensitive`, `limit`, `cursor`) | Full scan output is too broad for large libraries | Filtered and paged grep works; backward compatible defaults preserved |
 | B1-3 | P1 | Add `read-section` tool (heading-based drilldown) | `peek + read full` wastes tokens for long docs | Can read by heading anchor; line range returned for provenance |
 | B1-4 | P1 | Precompute lightweight metadata index (`state/libraries.stats.json`) and use cache | Runtime currently rescans file trees repeatedly | `list-libraries` and stats avoid full rescans on every call; cache invalidation documented |
-| B2-1 | P2 | Add optional non-stdio transport (HTTP/SSE) with token auth | Needed for personal cloud deployment and remote agents | Remote transport works with auth token; stdio mode remains default |
+| B1-5 | P1 | Add optional semantic skeleton extraction contract (`skeleton` sidecar or frontmatter field) | Agents should preview structure before full reads on long docs | `peek-document` can return skeleton summary when available without full content load |
+| B1-6 | P1 | Add exclusion rules (`.agentignore` / path denylist) for list+grep | Reduce retrieval noise and token waste from irrelevant files | Ignored paths are excluded consistently from `list-structure` and `grep-knowledge` |
+| B1-7 | P1 | Add source provenance URL in retrieval outputs | Strengthen citation honesty and operator trust | `grep`/`read` responses include canonical source reference when configured |
+| B2-1 | P1 | Add optional non-stdio transport (HTTP/SSE) with token auth | Primary use case includes personal private cloud agents | Remote transport works with auth token; stdio mode remains default |
 | B2-2 | P2 | Add structured observability (request id, latency, tool outcome) | Needed for operability and tuning | Logs include tool name, duration, status; can trace slow calls |
 | B2-3 | P2 | Performance hardening: async IO and optional `rg` backend for grep | Full synchronous scans will degrade at scale | Benchmark script added; grep latency reduced on large fixture corpus |
 
 ## Suggested Execution Order
 
 1. B0-1 -> B0-2 -> B0-3
-2. B1-1 -> B1-2 -> B1-3 -> B1-4
+2. B1-1 -> B1-2 -> B1-3 -> B1-4 -> B1-5 -> B1-6 -> B1-7
 3. B2-1 -> B2-2 -> B2-3
+
+## Scale Gates (Linus Guardrail)
+
+Do not start P2 tasks unless one or more conditions are met:
+
+1. `data-refined` total markdown files > 10,000.
+2. Grep/list p95 latency > 300ms in production-like runs.
+3. Runtime logs show recurring timeout or overload symptoms.
 
 ## Definition of Done (Global)
 

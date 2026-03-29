@@ -19,7 +19,9 @@ export interface GrepResponse {
  */
 export function listStructure(basePath: string): string {
   if (!existsSync(basePath)) {
-    throw new Error(`Library path not found: ${basePath}. Run 'bun run sync' first.`);
+    throw new Error(
+      `Library path not found: ${basePath}. Ensure the library exists under LIBRARIAN_REFINED_DIR.`
+    );
   }
 
   const getTree = (dir: string, prefix = ""): string => {
@@ -47,7 +49,9 @@ export function listStructure(basePath: string): string {
  */
 export function grepKnowledge(basePath: string, query: string): GrepResponse {
   if (!existsSync(basePath)) {
-    throw new Error(`Library path not found: ${basePath}. Run 'bun run sync' first.`);
+    throw new Error(
+      `Library path not found: ${basePath}. Ensure the library exists under LIBRARIAN_REFINED_DIR.`
+    );
   }
   if (!query || query.trim().length === 0) {
     throw new Error("Query cannot be empty");
@@ -97,7 +101,9 @@ export function grepKnowledge(basePath: string, query: string): GrepResponse {
  */
 export function peekDocument(basePath: string, userPath: string): string {
   if (!existsSync(basePath)) {
-    throw new Error(`Library path not found: ${basePath}. Run 'bun run sync' first.`);
+    throw new Error(
+      `Library path not found: ${basePath}. Ensure the library exists under LIBRARIAN_REFINED_DIR.`
+    );
   }
 
   const filePath = safePath(basePath, userPath);

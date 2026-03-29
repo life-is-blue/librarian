@@ -54,13 +54,13 @@ async function main() {
 
   // Check if data exists
   if (!existsSync(REFINED_DIR)) {
-    console.log("[smoke] SKIP: No data found. Run 'bun run build' first to download data.");
+    console.log("[smoke] SKIP: No data found. Provide data under LIBRARIAN_REFINED_DIR (default: ./data-refined).");
     return;
   }
 
   const libraries = readdirSync(REFINED_DIR).filter(e => !e.startsWith("."));
   if (libraries.length === 0) {
-    console.log("[smoke] SKIP: No libraries found in data-refined/. Run 'bun run build' first.");
+    console.log("[smoke] SKIP: No libraries found in data-refined/. Ensure at least one <library-id>/ directory exists.");
     return;
   }
 

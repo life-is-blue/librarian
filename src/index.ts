@@ -105,7 +105,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (!libraryId) throw new Error("libraryId is required");
         const libPath = refinedLibraryPath(libraryId);
         if (!existsSync(libPath)) {
-          throw new Error(`Library '${libraryId}' not found. Run 'bun run build' to download data.`);
+          throw new Error(
+            `Library '${libraryId}' not found under '${REFINED_DIR}'. Ensure data is synced to data-refined/<library-id> or set LIBRARIAN_REFINED_DIR.`
+          );
         }
         return { content: [{ type: "text", text: listStructure(libPath) }] };
       }
@@ -114,7 +116,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (!libraryId) throw new Error("libraryId is required");
         const libPath = refinedLibraryPath(libraryId);
         if (!existsSync(libPath)) {
-          throw new Error(`Library '${libraryId}' not found. Run 'bun run build' to download data.`);
+          throw new Error(
+            `Library '${libraryId}' not found under '${REFINED_DIR}'. Ensure data is synced to data-refined/<library-id> or set LIBRARIAN_REFINED_DIR.`
+          );
         }
         const response = grepKnowledge(libPath, String(args?.query));
         const lines = response.matches.map(m => `${m.path}:${m.line}: ${m.content}`);
@@ -126,7 +130,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (!libraryId) throw new Error("libraryId is required");
         const libPath = refinedLibraryPath(libraryId);
         if (!existsSync(libPath)) {
-          throw new Error(`Library '${libraryId}' not found. Run 'bun run build' to download data.`);
+          throw new Error(
+            `Library '${libraryId}' not found under '${REFINED_DIR}'. Ensure data is synced to data-refined/<library-id> or set LIBRARIAN_REFINED_DIR.`
+          );
         }
         return { content: [{ type: "text", text: peekDocument(libPath, String(args?.path)) }] };
       }
@@ -135,7 +141,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (!libraryId) throw new Error("libraryId is required");
         const libPath = refinedLibraryPath(libraryId);
         if (!existsSync(libPath)) {
-          throw new Error(`Library '${libraryId}' not found. Run 'bun run build' to download data.`);
+          throw new Error(
+            `Library '${libraryId}' not found under '${REFINED_DIR}'. Ensure data is synced to data-refined/<library-id> or set LIBRARIAN_REFINED_DIR.`
+          );
         }
         const fullDocPath = safePath(libPath, String(args?.path));
         if (!existsSync(fullDocPath)) {

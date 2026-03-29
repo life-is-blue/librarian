@@ -18,6 +18,14 @@ Librarian treats navigation as a first-class retrieval strategy:
 
 For the full rationale and design philosophy, see `docs/PHILOSOPHY.md`.
 
+## Primary Use Case
+
+Personal private knowledge service for one owner:
+
+- Content is prepared upstream (for example by `git-library` sync/standardize flows)
+- This repository serves refined markdown to agents through MCP tools
+- Deployment target is a personal VPS/domain where multiple agent clients can connect
+
 ## Philosophy
 
 1. **Navigate-First**: Filenames, headings, and line numbers are facts.
@@ -38,7 +46,8 @@ This repository currently implements the MCP runtime layer only:
   - `read-document`
 - Serving root: `data-refined/<libraryId>`
 
-Planned pipeline pieces like `sync / standardize / manifest` are not implemented in this repository yet.
+Pipeline pieces like `sync / standardize / manifest` are handled by upstream data pipelines
+(for example `git-library`) and are out of scope for this repository.
 
 ## Quick Start
 

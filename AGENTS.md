@@ -73,3 +73,4 @@ When tools fail, they provide actionable guidance:
 
 Current repository scope is runtime-only MCP serving. Pipeline commands such as
 `sync`, `standardize`, `manifest`, and `build` are roadmap items and are not implemented here yet.
+These are expected to be handled by upstream data pipeline projects (for example `git-library`).

@@ -7,6 +7,37 @@
 This document describes runtime architecture and implementation boundaries.
 For project motivation and design worldview, see `docs/PHILOSOPHY.md`.
 
+## 0.1 Primary Use Case
+
+Primary target is a **personal private cloud knowledge service**:
+
+1. One owner curates and controls knowledge sources.
+2. Upstream pipeline prepares markdown artifacts.
+3. Librarian runtime serves those artifacts to agent clients via MCP.
+
+## 0.2 Out of Scope (This Repository)
+
+The following are intentionally outside this runtime codebase:
+
+1. Upstream sync/crawl from source repositories.
+2. LLM standardization/tagging pipelines.
+3. Registry federation/orchestration logic.
+4. Multi-tenant account or ACL systems.
+
+## 0.3 External Dependency Boundary
+
+Upstream project(s) such as `git-library` are responsible for:
+
+1. Fetching/syncing raw content.
+2. Standardizing documents into refined markdown artifacts.
+3. Publishing/refreshing `data-refined` content.
+
+This repository is responsible for:
+
+1. Loading local refined libraries from `LIBRARIAN_REFINED_DIR`.
+2. Exposing deterministic MCP navigation tools.
+3. Returning traceable retrieval coordinates (`libraryId + path + line`).
+
 ## 1. Core Thesis
 
 Traditional vector RAG is probabilistic. This project is intentionally deterministic:
@@ -29,7 +60,7 @@ It reads Markdown directly from a local serving root:
 data-refined/<library-id>/**
 ```
 
-No sync pipeline, standardizer pipeline, or manifest generator is currently implemented here.
+No sync pipeline, standardizer pipeline, registry federation, or manifest generator is implemented here.
 
 ### 2.2 Components
 
@@ -71,11 +102,12 @@ These are known runtime constraints in the present implementation:
 
 The following are architectural goals, not current behavior:
 
-1. Data pipeline (`sync`, `standardize`, `manifest`).
+1. Artifact compatibility checks for upstream-produced data-refined snapshots.
 2. Precomputed lightweight indexes (headings, metadata, file stats).
 3. Cursor/pagination and depth constraints for large libraries.
 4. Section-aware read APIs (`read-section` / heading-based drilldown).
 5. Optional remote transport (HTTP/SSE) with auth for cloud deployment.
+6. Retrieval provenance enrichments (source URL and canonical references).
 
 ## 5. Design Principle
 
