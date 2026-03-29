@@ -1,5 +1,13 @@
-import { join, relative } from "path";
+import { join, relative, resolve } from "path";
 import { readdirSync, readFileSync, statSync } from "fs";
+
+function safePath(basePath: string, userPath: string): string {
+  const resolved = resolve(basePath, userPath);
+  if (!resolved.startsWith(basePath)) {
+    throw new Error(`Path traversal detected: ${userPath}`);
+  }
+  return resolved;
+}
 
 /**
  * L1: 目录树导航 - 让 Agent 看到知识地图
@@ -55,7 +63,8 @@ export function grepKnowledge(basePath: string, query: string): string[] {
 /**
  * L3: 渐进式披露 - 只给 H1/H2 和前 30 行
  */
-export function peekDocument(filePath: string): string {
+export function peekDocument(basePath: string, userPath: string): string {
+  const filePath = safePath(basePath, userPath);
   const content = readFileSync(filePath, "utf-8");
   const lines = content.split("\n");
   

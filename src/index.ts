@@ -4,9 +4,17 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { join } from "path";
+import { join, resolve } from "path";
 import { readFileSync, existsSync } from "fs";
 import { listStructure, grepKnowledge, peekDocument } from "./tools/navigation.js";
+
+function safePath(basePath: string, userPath: string): string {
+  const resolved = resolve(basePath, userPath);
+  if (!resolved.startsWith(basePath)) {
+    throw new Error(`Path traversal detected: ${userPath}`);
+  }
+  return resolved;
+}
 
 /**
  * Librarian MCP Hub Server
@@ -33,8 +41,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       description: "L1: View the file tree structure of a specific library.",
       inputSchema: {
         type: "object",
-        properties: { library-id: { type: "string" } },
-        required: ["library-id"],
+        properties: { libraryId: { type: "string" } },
+        required: ["libraryId"],
       },
     },
     {
@@ -43,10 +51,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: {
         type: "object",
         properties: {
-          library-id: { type: "string" },
+          libraryId: { type: "string" },
           query: { type: "string" },
         },
-        required: ["library-id", "query"],
+        required: ["libraryId", "query"],
       },
     },
     {
@@ -55,10 +63,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: {
         type: "object",
         properties: {
-          library-id: { type: "string" },
+          libraryId: { type: "string" },
           path: { type: "string" },
         },
-        required: ["library-id", "path"],
+        required: ["libraryId", "path"],
       },
     },
     {
@@ -67,10 +75,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: {
         type: "object",
         properties: {
-          library-id: { type: "string" },
+          libraryId: { type: "string" },
           path: { type: "string" },
         },
-        required: ["library-id", "path"],
+        required: ["libraryId", "path"],
       },
     },
   ],
@@ -84,7 +92,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   try {
     const registry = JSON.parse(readFileSync(REGISTRY_PATH, "utf-8"));
-    const library = registry.libraries.find((l: any) => l.id === args?.library-id);
+    const libraryId = args?.libraryId as string | undefined;
+    const library = libraryId ? registry.libraries.find((l: any) => l.id === libraryId) : null;
+    
+    if (libraryId && !library) {
+      throw new Error(`Library not found: ${libraryId}`);
+    }
+    
     const libPath = library ? join(process.cwd(), library.path) : DATA_DIR;
 
     switch (name) {
@@ -99,11 +113,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return { content: [{ type: "text", text: matches.length > 0 ? matches.join("\n") : "No results found." }] };
 
       case "peek-document":
-        const docPath = join(libPath, String(args?.path));
-        return { content: [{ type: "text", text: peekDocument(docPath) }] };
+        return { content: [{ type: "text", text: peekDocument(libPath, String(args?.path)) }] };
 
       case "read-document":
-        const fullDocPath = join(libPath, String(args?.path));
+        const fullDocPath = safePath(libPath, String(args?.path));
         return { content: [{ type: "text", text: readFileSync(fullDocPath, "utf-8") }] };
 
       default:
