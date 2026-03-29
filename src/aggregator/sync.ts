@@ -1,9 +1,6 @@
 import { spawnSync } from "child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { join } from "path";
-
-const REGISTRY_PATH = process.env.LIBRARIAN_REGISTRY || join(process.cwd(), "config", "registry.json");
-const BASE_DATA_DIR = process.env.LIBRARIAN_DATA_DIR || join(process.cwd(), "data");
+import { RAW_DIR, loadRegistry, rawLibraryPath } from "../core/runtime.js";
 
 function runGit(args: string[], cwd?: string): string {
   const result = spawnSync("git", args, { cwd, encoding: "utf-8" });
@@ -14,17 +11,17 @@ function runGit(args: string[], cwd?: string): string {
 }
 
 async function syncAll() {
-  const registry = JSON.parse(readFileSync(REGISTRY_PATH, "utf-8"));
-  if (!existsSync(BASE_DATA_DIR)) mkdirSync(BASE_DATA_DIR, { recursive: true });
+  const registry = loadRegistry();
+  if (!existsSync(RAW_DIR)) mkdirSync(RAW_DIR, { recursive: true });
 
   for (const lib of registry.libraries) {
-    const libPath = join(BASE_DATA_DIR, lib.id);
-    const refPath = join(libPath, ".ref");
+    const libPath = rawLibraryPath(lib.id);
+    const refPath = `${libPath}/.ref`;
     const branch = lib.branch || "main";
 
     console.log(`[Sync] ${lib.id}`);
 
-    if (existsSync(join(libPath, ".git"))) {
+    if (existsSync(`${libPath}/.git`)) {
       // 增量更新
       const lastRef = existsSync(refPath) ? readFileSync(refPath, "utf-8").trim() : "";
       

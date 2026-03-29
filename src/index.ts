@@ -4,25 +4,14 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { join, resolve, sep } from "path";
 import { readFileSync, existsSync } from "fs";
 import { listStructure, grepKnowledge, peekDocument } from "./tools/navigation.js";
-
-function safePath(basePath: string, userPath: string): string {
-  const resolvedBase = resolve(basePath);
-  const resolved = resolve(resolvedBase, userPath);
-  if (resolved !== resolvedBase && !resolved.startsWith(`${resolvedBase}${sep}`)) {
-    throw new Error(`Path traversal detected: ${userPath}`);
-  }
-  return resolved;
-}
+import { safePath } from "./core/path.js";
+import { loadRegistry, loadStatsIndex, refinedLibraryPath } from "./core/runtime.js";
 
 /**
  * Librarian MCP Hub Server
  */
-const DATA_DIR = process.env.LIBRARIAN_DATA_DIR || join(process.cwd(), "data-refined");
-const REGISTRY_PATH = process.env.LIBRARIAN_REGISTRY || join(process.cwd(), "config", "registry.json");
-
 const server = new Server(
   { name: "librarian", version: "1.0.0" },
   { capabilities: { tools: {} } }
@@ -96,36 +85,65 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   try {
-    const registry = JSON.parse(readFileSync(REGISTRY_PATH, "utf-8"));
+    const registry = loadRegistry();
+    const statsByLibrary = loadStatsIndex();
     const libraryId = args?.libraryId as string | undefined;
-    const library = libraryId ? registry.libraries.find((l: any) => l.id === libraryId) : null;
-    
-    if (libraryId && !library) {
-      throw new Error(`Library not found: ${libraryId}`);
-    }
-
-    const libPath = library ? join(DATA_DIR, library.id) : DATA_DIR;
-    if (!existsSync(libPath)) {
-      throw new Error(`Library path not found: ${libPath}`);
-    }
+    const library = libraryId ? registry.libraries.find((item) => item.id === libraryId) : null;
 
     switch (name) {
       case "list-libraries":
-        return { content: [{ type: "text", text: JSON.stringify(registry.libraries, null, 2) }] };
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                registry.libraries.map((item) => ({
+                  id: item.id,
+                  name: item.name,
+                  branch: item.branch,
+                  source_subpath: item.source_subpath,
+                  stats: statsByLibrary.get(item.id) || null
+                })),
+                null,
+                2
+              )
+            }
+          ]
+        };
 
-      case "list-structure":
+      case "list-structure": {
+        if (!libraryId) throw new Error("libraryId is required");
+        if (!library) throw new Error(`Library not found: ${libraryId}`);
+        const libPath = refinedLibraryPath(library.id);
+        if (!existsSync(libPath)) throw new Error(`Library path not found: ${libPath}`);
         return { content: [{ type: "text", text: listStructure(libPath) }] };
+      }
 
-      case "grep-knowledge":
+      case "grep-knowledge": {
+        if (!libraryId) throw new Error("libraryId is required");
+        if (!library) throw new Error(`Library not found: ${libraryId}`);
+        const libPath = refinedLibraryPath(library.id);
+        if (!existsSync(libPath)) throw new Error(`Library path not found: ${libPath}`);
         const matches = grepKnowledge(libPath, String(args?.query));
         return { content: [{ type: "text", text: matches.length > 0 ? matches.join("\n") : "No results found." }] };
+      }
 
-      case "peek-document":
+      case "peek-document": {
+        if (!libraryId) throw new Error("libraryId is required");
+        if (!library) throw new Error(`Library not found: ${libraryId}`);
+        const libPath = refinedLibraryPath(library.id);
+        if (!existsSync(libPath)) throw new Error(`Library path not found: ${libPath}`);
         return { content: [{ type: "text", text: peekDocument(libPath, String(args?.path)) }] };
+      }
 
-      case "read-document":
+      case "read-document": {
+        if (!libraryId) throw new Error("libraryId is required");
+        if (!library) throw new Error(`Library not found: ${libraryId}`);
+        const libPath = refinedLibraryPath(library.id);
+        if (!existsSync(libPath)) throw new Error(`Library path not found: ${libPath}`);
         const fullDocPath = safePath(libPath, String(args?.path));
         return { content: [{ type: "text", text: readFileSync(fullDocPath, "utf-8") }] };
+      }
 
       default:
         throw new Error(`Unknown tool: ${name}`);

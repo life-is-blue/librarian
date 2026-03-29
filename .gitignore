@@ -4,6 +4,8 @@ node_modules/
 data/*
 !data/.gitkeep
 data-refined/
+state/*
+!state/.gitkeep
 dist/
 *.db
 *.log

@@ -1,10 +1,9 @@
-import { join, dirname } from "path";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, rmSync, statSync } from "fs";
-import { Glob } from "bun";
+import { dirname, join } from "path";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "fs";
+import { createHash } from "crypto";
 import { generateTags } from "./llm.js";
-
-const SOURCE_DIR = process.env.LIBRARIAN_SOURCE_DIR || join(process.cwd(), "data");
-const TARGET_DIR = process.env.LIBRARIAN_TARGET_DIR || join(process.cwd(), "data-refined");
+import { REFINED_DIR, loadRegistry, refinedLibraryPath, resolveLibrarySourceRoot } from "../core/runtime.js";
+import { normalizeRelPath } from "../core/path.js";
 
 const FRONTMATTER_FIELDS = ["intent", "scope", "keywords", "summary"];
 
@@ -12,11 +11,29 @@ function hasCompleteFrontmatter(content: string): boolean {
   const match = content.match(/^---\n([\s\S]*?)\n---/);
   if (!match) return false;
   const frontmatter = match[1];
-  return FRONTMATTER_FIELDS.every(field => new RegExp(`^\\s*${field}:`, "m").test(frontmatter));
+  return FRONTMATTER_FIELDS.every((field) => new RegExp(`^\\s*${field}:`, "m").test(frontmatter));
 }
 
-function normalizeRelPath(path: string): string {
-  return path.split("\\").join("/");
+function getHash(content: string): string {
+  return createHash("sha256").update(content).digest("hex");
+}
+
+function getFrontmatterField(content: string, fieldName: string): string | null {
+  const match = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!match) return null;
+  const frontmatter = match[1];
+  const fieldMatch = frontmatter.match(new RegExp(`^\\s*${fieldName}:\\s*(.+)$`, "m"));
+  if (!fieldMatch) return null;
+
+  const raw = fieldMatch[1].trim();
+  if (raw.startsWith("\"") && raw.endsWith("\"")) {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return raw.slice(1, -1);
+    }
+  }
+  return raw;
 }
 
 function collectMarkdownFiles(rootDir: string, subDir = ""): string[] {
@@ -38,46 +55,71 @@ function collectMarkdownFiles(rootDir: string, subDir = ""): string[] {
   return results;
 }
 
-function removeStaleRefinedFiles(processedFiles: Set<string>) {
-  for (const relPath of collectMarkdownFiles(TARGET_DIR)) {
+function removeStaleRefinedFiles(targetRoot: string, processedFiles: Set<string>) {
+  for (const relPath of collectMarkdownFiles(targetRoot)) {
     if (processedFiles.has(relPath)) continue;
-    const stalePath = join(TARGET_DIR, relPath);
+    const stalePath = join(targetRoot, relPath);
     rmSync(stalePath, { force: true });
     console.log(`  Removing stale file ${relPath}`);
   }
 }
 
-async function refine() {
-  console.log(`[Standardizer] Refining from ${SOURCE_DIR} to ${TARGET_DIR}`);
-  if (!existsSync(TARGET_DIR)) mkdirSync(TARGET_DIR, { recursive: true });
+function removeOrphanLibraries(currentLibraryIds: Set<string>) {
+  if (!existsSync(REFINED_DIR)) return;
+  for (const entry of readdirSync(REFINED_DIR)) {
+    const absPath = join(REFINED_DIR, entry);
+    if (!statSync(absPath).isDirectory()) continue;
+    if (entry.startsWith(".")) continue;
+    if (currentLibraryIds.has(entry)) continue;
+    rmSync(absPath, { recursive: true, force: true });
+    console.log(`[Standardizer] Removing orphan refined library ${entry}`);
+  }
+}
 
-  const glob = new Glob("**/*.md");
+async function refineLibrary(library: ReturnType<typeof loadRegistry>["libraries"][number]) {
+  const sourceRoot = resolveLibrarySourceRoot(library);
+  const targetRoot = refinedLibraryPath(library.id);
+
+  if (!existsSync(sourceRoot)) {
+    throw new Error(`[${library.id}] source_subpath not found: ${sourceRoot}`);
+  }
+  if (!existsSync(targetRoot)) mkdirSync(targetRoot, { recursive: true });
+
+  console.log(`[Standardizer] [${library.id}] source=${sourceRoot} target=${targetRoot}`);
+
   const processedFiles = new Set<string>();
-  
-  for await (const file of glob.scan(SOURCE_DIR)) {
-    const relPath = normalizeRelPath(file);
-    if (relPath.startsWith(".git/") || relPath.includes("/.git/")) continue;
+  for (const relPath of collectMarkdownFiles(sourceRoot)) {
     processedFiles.add(relPath);
 
-    const sourcePath = join(SOURCE_DIR, relPath);
-    const targetPath = join(TARGET_DIR, relPath);
-    
+    const sourcePath = join(sourceRoot, relPath);
+    const targetPath = join(targetRoot, relPath);
     const content = readFileSync(sourcePath, "utf-8");
-    
+    const sourceHash = getHash(content);
+
     if (hasCompleteFrontmatter(content)) {
-      console.log(`  Skipping ${relPath} (Already has frontmatter)`);
+      console.log(`  Skipping ${library.id}/${relPath} (Already has frontmatter)`);
       if (!existsSync(dirname(targetPath))) mkdirSync(dirname(targetPath), { recursive: true });
       writeFileSync(targetPath, content);
       continue;
     }
 
-    console.log(`  Processing ${relPath}...`);
+    if (existsSync(targetPath)) {
+      const currentRefined = readFileSync(targetPath, "utf-8");
+      const currentSourceHash = getFrontmatterField(currentRefined, "source_hash");
+      if (hasCompleteFrontmatter(currentRefined) && currentSourceHash === sourceHash) {
+        console.log(`  Skipping ${library.id}/${relPath} (Unchanged source)`);
+        continue;
+      }
+    }
+
+    console.log(`  Processing ${library.id}/${relPath}...`);
     const { frontmatter, summary } = await generateTags(content);
     const refinedContent = `---
 intent: ${JSON.stringify(frontmatter.intent)}
 scope: ${JSON.stringify(frontmatter.scope)}
 keywords: ${JSON.stringify(frontmatter.keywords)}
 summary: ${JSON.stringify(summary)}
+source_hash: ${JSON.stringify(sourceHash)}
 ---
 
 ${content}`;
@@ -86,7 +128,19 @@ ${content}`;
     writeFileSync(targetPath, refinedContent);
   }
 
-  removeStaleRefinedFiles(processedFiles);
+  removeStaleRefinedFiles(targetRoot, processedFiles);
+}
+
+async function refine() {
+  const registry = loadRegistry();
+  const libraryIds = new Set(registry.libraries.map((library) => library.id));
+
+  if (!existsSync(REFINED_DIR)) mkdirSync(REFINED_DIR, { recursive: true });
+  removeOrphanLibraries(libraryIds);
+
+  for (const library of registry.libraries) {
+    await refineLibrary(library);
+  }
 }
 
 refine().catch((error) => {

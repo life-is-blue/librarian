@@ -3,14 +3,9 @@
     {
       "id": "gemini-cli",
       "name": "Gemini CLI Official Docs",
-      "path": "data/gemini-cli/docs",
       "url": "https://github.com/google-gemini/gemini-cli.git",
       "branch": "main",
-      "stats": {
-        "file_count": 114,
-        "source_ref": "da8c841ef4c887eea844b02187dbb38ed1dc57b1",
-        "last_updated": "2026-03-29T04:43:49.960Z"
-      }
+      "source_subpath": "docs"
     }
   ]
 }

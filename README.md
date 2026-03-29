@@ -1,4 +1,4 @@
-# kilog: The Librarian for Agents
+# librarian: The Librarian for Agents
 
 Agentic Search logic: **Navigating, not searching.**
 Stop hallucinating with vectors. Give your AI a map and a flashlight.
@@ -23,15 +23,20 @@ Stop hallucinating with vectors. Give your AI a map and a flashlight.
 ## Quick Start
 
 ```bash
-# Clone your knowledge repos to ./data
+# (optional) export LIBRARIAN_RAW_DIR=./data
+# (optional) export LIBRARIAN_REFINED_DIR=./data-refined
+# (optional) export LIBRARIAN_REGISTRY=./config/registry.json
 # (optional) export LLM_API_KEY=...
-# local-only fallback: export LIBRARIAN_ALLOW_MOCK_LLM=1
+# local-only fallback only: export LIBRARIAN_ALLOW_MOCK_LLM=1
 
-# Sync + standardize + update registry stats
+# Sync + standardize + update state/libraries.stats.json
 bun run build
 
 # Launch the MCP server
 bun start
+
+# End-to-end smoke verification
+bun run smoke
 ```
 
 ## Why?

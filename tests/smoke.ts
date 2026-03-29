@@ -1,8 +1,9 @@
-import { readdirSync, statSync, readFileSync } from "fs";
+import { readdirSync, statSync } from "fs";
 import { join, relative } from "path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { CallToolResultSchema, ListToolsResultSchema } from "@modelcontextprotocol/sdk/types.js";
+import { REFINED_DIR, REGISTRY_PATH, loadRegistry } from "../src/core/runtime.js";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -33,11 +34,7 @@ function extractText(result: { content: Array<{ type: string; text?: string }> }
     .join("\n");
 }
 
-async function callTool(
-  client: Client,
-  name: string,
-  args: Record<string, unknown>
-): Promise<string> {
+async function callTool(client: Client, name: string, args: Record<string, unknown>): Promise<string> {
   const result = await client.request(
     {
       method: "tools/call",
@@ -55,17 +52,11 @@ async function callTool(
 
 async function main() {
   const cwd = process.cwd();
-  const dataDir = process.env.LIBRARIAN_DATA_DIR || join(cwd, "data-refined");
-  const registryPath = process.env.LIBRARIAN_REGISTRY || join(cwd, "config", "registry.json");
-  const registry = JSON.parse(readFileSync(registryPath, "utf-8"));
+  const registry = loadRegistry();
 
-  assert(Array.isArray(registry.libraries), "registry.libraries must be an array");
   assert(registry.libraries.length > 0, "registry must contain at least one library");
-
-  const libraryId = String(registry.libraries[0].id || "");
-  assert(libraryId.length > 0, "library id cannot be empty");
-
-  const libraryRoot = join(dataDir, libraryId);
+  const libraryId = registry.libraries[0].id;
+  const libraryRoot = join(REFINED_DIR, libraryId);
   const sampleAbsPath = findFirstMarkdownFile(libraryRoot);
   assert(sampleAbsPath, `no markdown files found in ${libraryRoot}`);
   const samplePath = relative(libraryRoot, sampleAbsPath).split("\\").join("/");
@@ -76,8 +67,8 @@ async function main() {
     cwd,
     stderr: "pipe",
     env: {
-      LIBRARIAN_DATA_DIR: dataDir,
-      LIBRARIAN_REGISTRY: registryPath
+      LIBRARIAN_REFINED_DIR: REFINED_DIR,
+      LIBRARIAN_REGISTRY: REGISTRY_PATH
     }
   });
 

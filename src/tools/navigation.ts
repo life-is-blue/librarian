@@ -1,14 +1,6 @@
-import { join, relative, resolve, sep } from "path";
+import { join, relative } from "path";
 import { readdirSync, readFileSync, statSync } from "fs";
-
-function safePath(basePath: string, userPath: string): string {
-  const resolvedBase = resolve(basePath);
-  const resolved = resolve(resolvedBase, userPath);
-  if (resolved !== resolvedBase && !resolved.startsWith(`${resolvedBase}${sep}`)) {
-    throw new Error(`Path traversal detected: ${userPath}`);
-  }
-  return resolved;
-}
+import { safePath } from "../core/path.js";
 
 /**
  * L1: 目录树导航 - 让 Agent 看到知识地图

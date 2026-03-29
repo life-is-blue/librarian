@@ -23,6 +23,10 @@ bun dev
 
 ### Environment Variables
 
+- `LIBRARIAN_RAW_DIR` - Optional, raw sync directory (defaults to `./data`)
+- `LIBRARIAN_REFINED_DIR` - Optional, refined serving directory (defaults to `./data-refined`)
+- `LIBRARIAN_REGISTRY` - Optional, registry config path (defaults to `./config/registry.json`)
+- `LIBRARIAN_STATS_PATH` - Optional, generated stats path (defaults to `./state/libraries.stats.json`)
 - `LLM_API_KEY` - Required for standardizer (OpenAI-compatible API)
 - `LLM_BASE_URL` - Optional, defaults to `https://api.openai.com/v1`
 - `LIBRARIAN_ALLOW_MOCK_LLM` - Optional (`1` to allow mock tags when `LLM_API_KEY` is missing; default is fail-fast)
@@ -57,8 +61,9 @@ The MCP Hub exposes 5 tools across 4 levels:
     {
       "id": "core-docs",
       "name": "System Core Documents",
-      "path": "./data/core-docs",
-      "topics": ["architecture", "api", "security"]
+      "url": "https://example.com/core-docs.git",
+      "branch": "main",
+      "source_subpath": "docs"
     }
   ]
 }
@@ -87,6 +92,8 @@ data/ (raw markdown)
 data-refined/ (standardized markdown with frontmatter)
     ↓ bun start
 MCP Hub (stdio) → AI Agent tools
+    ↓ bun manifest
+state/libraries.stats.json (generated runtime stats)
 ```
 
 ## Key Design Principles
@@ -100,4 +107,5 @@ MCP Hub (stdio) → AI Agent tools
 
 - `data/` is gitignored except `.gitkeep` - knowledge content is not versioned
 - MCP runtime reads `data-refined/<libraryId>` as the serving root (not raw source paths)
-- No test suite configured
+- `config/registry.json` is static config only; generated stats live under `state/`
+- Smoke verification exists at `tests/smoke.ts`; full unit/integration suites are not configured yet

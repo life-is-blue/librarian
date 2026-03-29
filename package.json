@@ -9,7 +9,7 @@
     "standardize": "bun src/standardizer/cli.ts",
     "manifest": "bun src/hub/manifest-gen.ts",
     "build": "bun run sync && bun run standardize && bun run manifest",
-    "smoke": "bun src/smoke.ts",
+    "smoke": "bun tests/smoke.ts",
     "start": "bun src/index.ts",
     "dev": "bun --watch src/index.ts"
   },
