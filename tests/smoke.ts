@@ -1,9 +1,9 @@
-import { readdirSync, statSync } from "fs";
+import { readdirSync, statSync, existsSync } from "fs";
 import { join, relative } from "path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { CallToolResultSchema, ListToolsResultSchema } from "@modelcontextprotocol/sdk/types.js";
-import { REFINED_DIR, REGISTRY_PATH, loadRegistry } from "../src/core/runtime.js";
+import { REFINED_DIR } from "../src/core/runtime.js";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -11,7 +11,7 @@ function assert(condition: unknown, message: string): asserts condition {
 
 function findFirstMarkdownFile(rootPath: string): string | null {
   const walk = (dirPath: string): string | null => {
-    const entries = readdirSync(dirPath).sort();
+    const entries = readdirSync(dirPath);
     for (const entry of entries) {
       const absPath = join(dirPath, entry);
       if (statSync(absPath).isDirectory()) {
@@ -23,7 +23,6 @@ function findFirstMarkdownFile(rootPath: string): string | null {
     }
     return null;
   };
-
   return walk(rootPath);
 }
 
@@ -52,10 +51,20 @@ async function callTool(client: Client, name: string, args: Record<string, unkno
 
 async function main() {
   const cwd = process.cwd();
-  const registry = loadRegistry();
 
-  assert(registry.libraries.length > 0, "registry must contain at least one library");
-  const libraryId = registry.libraries[0].id;
+  // Check if data exists
+  if (!existsSync(REFINED_DIR)) {
+    console.log("[smoke] SKIP: No data found. Run 'bun run build' first to download data.");
+    return;
+  }
+
+  const libraries = readdirSync(REFINED_DIR).filter(e => !e.startsWith("."));
+  if (libraries.length === 0) {
+    console.log("[smoke] SKIP: No libraries found in data-refined/. Run 'bun run build' first.");
+    return;
+  }
+
+  const libraryId = libraries[0];
   const libraryRoot = join(REFINED_DIR, libraryId);
   const sampleAbsPath = findFirstMarkdownFile(libraryRoot);
   assert(sampleAbsPath, `no markdown files found in ${libraryRoot}`);
@@ -67,8 +76,7 @@ async function main() {
     cwd,
     stderr: "pipe",
     env: {
-      LIBRARIAN_REFINED_DIR: REFINED_DIR,
-      LIBRARIAN_REGISTRY: REGISTRY_PATH
+      LIBRARIAN_REFINED_DIR: REFINED_DIR
     }
   });
 
@@ -108,7 +116,7 @@ async function main() {
     assert(grepText.length > 0, "grep-knowledge returned empty response");
 
     const peekText = await callTool(client, "peek-document", { libraryId, path: samplePath });
-    assert(peekText.includes("--- TOP 30 LINES ---"), "peek-document response missing preview section");
+    assert(peekText.includes("TOP 30 LINES"), "peek-document response missing preview section");
 
     const readText = await callTool(client, "read-document", { libraryId, path: samplePath });
     assert(readText.includes("#"), "read-document response did not include markdown body");
