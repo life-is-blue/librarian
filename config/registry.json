@@ -1,10 +1,20 @@
 {
   "libraries": [
     {
-      "id": "core-docs",
-      "name": "System Core Documents",
-      "path": "./data/core-docs",
-      "topics": ["architecture", "api", "security"]
+      "id": "librarian-core",
+      "name": "librarian Core Docs",
+      "path": "data/librarian-core",
+      "url": "https://github.com/your-org/librarian-docs.git",
+      "branch": "main",
+      "routing_card": "Core architecture, MCP specs, and philosophy of the librarian project."
+    },
+    {
+      "id": "claudecode-guide",
+      "name": "Claude Code Guide",
+      "path": "data/claudecode",
+      "url": "https://github.com/anthropics/claudecode-docs.git",
+      "branch": "main",
+      "routing_card": "Official guides and troubleshooting for Claude Code CLI."
     }
   ]
 }

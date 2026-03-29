@@ -1,35 +1,65 @@
-name: Librarian Sync
+name: Librarian Data Pipeline
 
 on:
-  push:
-    branches: [ main ]
   schedule:
-    - cron: '0 0 * * *' # Daily sync
+    - cron: '0 0 * * *' # 每天凌晨同步
+  workflow_dispatch:      # 支持手动触发
 
 jobs:
-  standardize:
+  sync-and-process:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
+      - name: Checkout Code (main)
+        uses: actions/checkout@v4
+        with:
+          path: engine
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
-      
+
       - name: Install dependencies
-        run: bun install
-      
-      - name: Standardize Knowledge
-        run: bun run standardize
-        env:
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          
-      - name: Update Manifest
-        run: bun src/hub/manifest-gen.ts
-        
-      - name: Commit and Push
+        run: cd engine && bun install
+
+      # 1. 同步原始数据到 data-raw 分支
+      - name: Sync Raw Data
         run: |
           git config --global user.name "Librarian Bot"
           git config --global user.email "bot@librarian.ai"
+          
+          # 尝试检出或创建 data-raw 分支
+          git clone --branch data-raw https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git raw-repo || \
+          (mkdir raw-repo && cd raw-repo && git init && git checkout -b data-raw)
+          
+          cd engine
+          # 修改 aggregator 逻辑，使其指向 raw-repo/data 目录
+          export DATA_DIR_OVERRIDE=../raw-repo/data
+          bun run sync
+          
+          cd ../raw-repo
           git add .
-          git commit -m "chore: auto-sync knowledge catalog [skip ci]" || echo "No changes to commit"
-          git push
+          git commit -m "chore: upstream sync $(date +%F)" || echo "No changes"
+          git push origin data-raw
+
+      # 2. 处理数据到 data-refined 分支
+      - name: Standardize and Refine
+        run: |
+          # 准备 refined 目录
+          git clone --branch data-refined https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git refined-repo || \
+          (mkdir refined-repo && cd refined-repo && git init && git checkout -b data-refined)
+          
+          # 清除旧数据，准备由 raw 重新生成（或增量生成）
+          cp -r raw-repo/data/* refined-repo/
+          
+          cd engine
+          # 运行标注器，目标指向 refined-repo
+          export TARGET_DIR=../refined-repo
+          bun run standardize
+          
+          cd ../refined-repo
+          git add .
+          git commit -m "feat: knowledge refinement $(date +%F)" || echo "No changes"
+          git push origin data-refined
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}

@@ -11,8 +11,8 @@ import { listStructure, grepKnowledge, peekDocument } from "./tools/navigation.j
 /**
  * Librarian MCP Hub Server
  */
-const DATA_DIR = join(process.cwd(), "data");
-const REGISTRY_PATH = join(process.cwd(), "config", "registry.json");
+const DATA_DIR = process.env.LIBRARIAN_DATA_DIR || join(process.cwd(), "data-refined");
+const REGISTRY_PATH = process.env.LIBRARIAN_REGISTRY || join(process.cwd(), "config", "registry.json");
 
 const server = new Server(
   { name: "librarian", version: "1.0.0" },
@@ -25,52 +25,52 @@ const server = new Server(
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
-      name: "list_libraries",
+      name: "list-libraries",
       description: "List all connected knowledge repositories (LIBRARIES).",
     },
     {
-      name: "list_structure",
+      name: "list-structure",
       description: "L1: View the file tree structure of a specific library.",
       inputSchema: {
         type: "object",
-        properties: { library_id: { type: "string" } },
-        required: ["library_id"],
+        properties: { library-id: { type: "string" } },
+        required: ["library-id"],
       },
     },
     {
-      name: "grep_knowledge",
+      name: "grep-knowledge",
       description: "L2: Search for high-precision keywords and line numbers across files.",
       inputSchema: {
         type: "object",
         properties: {
-          library_id: { type: "string" },
+          library-id: { type: "string" },
           query: { type: "string" },
         },
-        required: ["library_id", "query"],
+        required: ["library-id", "query"],
       },
     },
     {
-      name: "peek_document",
+      name: "peek-document",
       description: "L3: Get H1/H2 anchors and first 30 lines for a quick glance.",
       inputSchema: {
         type: "object",
         properties: {
-          library_id: { type: "string" },
+          library-id: { type: "string" },
           path: { type: "string" },
         },
-        required: ["library_id", "path"],
+        required: ["library-id", "path"],
       },
     },
     {
-      name: "read_document",
+      name: "read-document",
       description: "L4: Full drill-down. Fetch the complete content of a specific document.",
       inputSchema: {
         type: "object",
         properties: {
-          library_id: { type: "string" },
+          library-id: { type: "string" },
           path: { type: "string" },
         },
-        required: ["library_id", "path"],
+        required: ["library-id", "path"],
       },
     },
   ],
@@ -84,25 +84,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   try {
     const registry = JSON.parse(readFileSync(REGISTRY_PATH, "utf-8"));
-    const library = registry.libraries.find((l: any) => l.id === args?.library_id);
+    const library = registry.libraries.find((l: any) => l.id === args?.library-id);
     const libPath = library ? join(process.cwd(), library.path) : DATA_DIR;
 
     switch (name) {
-      case "list_libraries":
+      case "list-libraries":
         return { content: [{ type: "text", text: JSON.stringify(registry.libraries, null, 2) }] };
 
-      case "list_structure":
+      case "list-structure":
         return { content: [{ type: "text", text: listStructure(libPath) }] };
 
-      case "grep_knowledge":
+      case "grep-knowledge":
         const matches = grepKnowledge(libPath, String(args?.query));
         return { content: [{ type: "text", text: matches.length > 0 ? matches.join("\n") : "No results found." }] };
 
-      case "peek_document":
+      case "peek-document":
         const docPath = join(libPath, String(args?.path));
         return { content: [{ type: "text", text: peekDocument(docPath) }] };
 
-      case "read_document":
+      case "read-document":
         const fullDocPath = join(libPath, String(args?.path));
         return { content: [{ type: "text", text: readFileSync(fullDocPath, "utf-8") }] };
 
