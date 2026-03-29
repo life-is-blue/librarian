@@ -1,0 +1,9 @@
+# kilog build guards
+node_modules/
+.DS_Store
+data/*
+!data/.gitkeep
+dist/
+*.db
+*.log
+.env

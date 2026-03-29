@@ -1,0 +1,10 @@
+{
+  "libraries": [
+    {
+      "id": "core-docs",
+      "name": "System Core Documents",
+      "path": "./data/core-docs",
+      "topics": ["architecture", "api", "security"]
+    }
+  ]
+}

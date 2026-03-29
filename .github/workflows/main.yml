@@ -1,0 +1,35 @@
+name: Librarian Sync
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * *' # Daily sync
+
+jobs:
+  standardize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - name: Install dependencies
+        run: bun install
+      
+      - name: Standardize Knowledge
+        run: bun run standardize
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          
+      - name: Update Manifest
+        run: bun src/hub/manifest-gen.ts
+        
+      - name: Commit and Push
+        run: |
+          git config --global user.name "Librarian Bot"
+          git config --global user.email "bot@librarian.ai"
+          git add .
+          git commit -m "chore: auto-sync knowledge catalog [skip ci]" || echo "No changes to commit"
+          git push
