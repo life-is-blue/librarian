@@ -32,7 +32,8 @@ bun run smoke      # Run smoke tests (auto-falls back to tests/fixtures/data-ref
 | L1 | `list-structure` | View file tree (The Map) |
 | L2 | `grep-knowledge` | Keyword search with line numbers |
 | L3 | `peek-document` | H1/H2 anchors + first 30 lines |
-| L4 | `read-document` | Full content retrieval |
+| L4 | `read-section` | Read a heading-scoped section with line-range |
+| L5 | `read-document` | Full content retrieval |
 
 Current optional params:
 - `list-structure`: `depth`, `cursor`, `limit`

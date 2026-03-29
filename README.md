@@ -43,6 +43,7 @@ This repository currently implements the MCP runtime layer only:
   - `list-structure`
   - `grep-knowledge`
   - `peek-document`
+  - `read-section`
   - `read-document`
 - Serving root: `data-refined/<libraryId>`
 
@@ -86,6 +87,9 @@ If a library or document does not exist, tools return actionable error messages.
   - Required: `libraryId`, `query`
   - Optional: `pathPrefix`, `caseSensitive`, `cursor`, `limit`
   - Behavior: paged match response with total counts and optional filters
+- `read-section`
+  - Required: `libraryId`, `path`, `heading`
+  - Behavior: returns section-scoped excerpt and line-range metadata
 
 ## References
 

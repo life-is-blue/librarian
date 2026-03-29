@@ -43,6 +43,15 @@ export interface GrepResponse {
   truncated: boolean;
 }
 
+export interface ReadSectionResponse {
+  heading: string;
+  level: number;
+  startLine: number;
+  endLine: number;
+  totalLines: number;
+  content: string;
+}
+
 /**
  * L1: 目录树导航 - 让 Agent 看到知识地图
  */
@@ -193,4 +202,84 @@ export function peekDocument(basePath: string, userPath: string): string {
   const totalLines = lines.length;
 
   return `--- STRUCTURE ---\n${headers.join("\n")}\n\n--- TOP 30 LINES (${totalLines} total) ---\n${preview}\n\n[System Note: Use read-document to fetch full content if needed.]`;
+}
+
+function normalizeHeadingText(value: string): string {
+  return value
+    .trim()
+    .replace(/^#+\s*/, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+/**
+ * L4: 章节钻取 - 按标题读取文档分段并返回行号范围
+ */
+export function readSection(basePath: string, userPath: string, headingQuery: string): ReadSectionResponse {
+  if (!existsSync(basePath)) {
+    throw new Error(
+      `Library path not found: ${basePath}. Ensure the library exists under LIBRARIAN_REFINED_DIR.`
+    );
+  }
+
+  const filePath = safePath(basePath, userPath);
+  if (!existsSync(filePath)) {
+    throw new Error(`Document not found: ${userPath}. Use list-structure to see available files.`);
+  }
+
+  const normalizedQuery = normalizeHeadingText(headingQuery);
+  if (!normalizedQuery) {
+    throw new Error("Heading cannot be empty.");
+  }
+
+  const content = readFileSync(filePath, "utf-8");
+  const lines = content.split("\n");
+  const headingPattern = /^(#{1,6})\s+(.*\S)\s*$/;
+
+  let startIndex = -1;
+  let headingLevel = 0;
+  let headingLine = "";
+
+  for (let i = 0; i < lines.length; i++) {
+    const match = headingPattern.exec(lines[i]);
+    if (!match) {
+      continue;
+    }
+
+    const level = match[1].length;
+    const headingText = match[2].trim();
+    if (normalizeHeadingText(headingText) === normalizedQuery) {
+      startIndex = i;
+      headingLevel = level;
+      headingLine = lines[i].trim();
+      break;
+    }
+  }
+
+  if (startIndex < 0) {
+    throw new Error(`Heading not found: ${headingQuery}. Use peek-document to inspect available anchors.`);
+  }
+
+  let endExclusive = lines.length;
+  for (let i = startIndex + 1; i < lines.length; i++) {
+    const match = headingPattern.exec(lines[i]);
+    if (!match) {
+      continue;
+    }
+
+    const nextLevel = match[1].length;
+    if (nextLevel <= headingLevel) {
+      endExclusive = i;
+      break;
+    }
+  }
+
+  return {
+    heading: headingLine,
+    level: headingLevel,
+    startLine: startIndex + 1,
+    endLine: endExclusive,
+    totalLines: lines.length,
+    content: lines.slice(startIndex, endExclusive).join("\n"),
+  };
 }

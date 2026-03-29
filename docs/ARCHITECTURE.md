@@ -28,7 +28,7 @@ The following are intentionally outside this runtime codebase:
 
 Upstream project(s) such as `git-library` are responsible for:
 
-1. Fetching/syncing raw content.
+1. Fetching/syncing raw content from upstream sources.
 2. Standardizing documents into refined markdown artifacts.
 3. Publishing/refreshing `data-refined` content.
 
@@ -86,7 +86,8 @@ No sync pipeline, standardizer pipeline, registry federation, or manifest genera
 | L1 | `list-structure` | Render directory map |
 | L2 | `grep-knowledge` | Locate keywords with `file:line` |
 | L3 | `peek-document` | Return H1/H2 anchors + first 30 lines |
-| L4 | `read-document` | Return full document |
+| L4 | `read-section` | Return heading-scoped section with line-range |
+| L5 | `read-document` | Return full document |
 
 Current optional controls:
 1. `list-structure`: `depth`, `cursor`, `limit`
@@ -99,7 +100,7 @@ These are known runtime constraints in the present implementation:
 1. File operations are synchronous (blocking per request).
 2. Grep is full scan over Markdown files in target library.
 3. Default calls can still be broad if callers omit pagination controls.
-4. `peek-document` is fixed to first 30 lines (not section-aware).
+4. `peek-document` is fixed to first 30 lines (not section-aware), while deeper drilldown uses `read-section`.
 5. Smoke uses fixture fallback when external `data-refined` is absent.
 
 ## 4. Planned Evolution (Roadmap)
@@ -109,7 +110,7 @@ The following are architectural goals, not current behavior:
 1. Artifact compatibility checks for upstream-produced data-refined snapshots.
 2. Precomputed lightweight indexes (headings, metadata, file stats).
 3. Cursor/pagination and depth constraints for large libraries.
-4. Section-aware read APIs (`read-section` / heading-based drilldown).
+4. Higher-level semantic summaries/skeletons to improve pre-read selection.
 5. Optional remote transport (HTTP/SSE) with auth for cloud deployment.
 6. Retrieval provenance enrichments (source URL and canonical references).
 

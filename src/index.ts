@@ -7,7 +7,7 @@ import {
 import { readFileSync, existsSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 import { z } from "zod";
-import { listStructure, grepKnowledge, peekDocument } from "./tools/navigation.js";
+import { listStructure, grepKnowledge, peekDocument, readSection } from "./tools/navigation.js";
 import { safePath } from "./core/path.js";
 import { listLibraries, refinedLibraryPath, REFINED_DIR } from "./core/runtime.js";
 
@@ -40,6 +40,11 @@ const grepKnowledgeArgsSchema = z.object({
 const documentArgsSchema = z.object({
   libraryId: nonEmptyString,
   path: nonEmptyString,
+}).strict();
+const readSectionArgsSchema = z.object({
+  libraryId: nonEmptyString,
+  path: nonEmptyString,
+  heading: nonEmptyString,
 }).strict();
 
 function parseArgs<T extends z.ZodTypeAny>(
@@ -139,8 +144,22 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     {
+      name: "read-section",
+      description: "L4: Read a specific section by heading and return a line-range scoped excerpt.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          libraryId: { type: "string", minLength: 1 },
+          path: { type: "string", minLength: 1 },
+          heading: { type: "string", minLength: 1 },
+        },
+        required: ["libraryId", "path", "heading"],
+        additionalProperties: false,
+      },
+    },
+    {
       name: "read-document",
-      description: "L4: Full drill-down. Fetch the complete content of a specific document.",
+      description: "L5: Full drill-down. Fetch the complete content of a specific document.",
       inputSchema: {
         type: "object",
         properties: {
@@ -205,6 +224,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const { libraryId, path } = parseArgs("peek-document", documentArgsSchema, args);
         const libPath = ensureLibraryPath(libraryId);
         return { content: [{ type: "text", text: peekDocument(libPath, path) }] };
+      }
+
+      case "read-section": {
+        const { libraryId, path, heading } = parseArgs("read-section", readSectionArgsSchema, args);
+        const libPath = ensureLibraryPath(libraryId);
+        const section = readSection(libPath, path, heading);
+        const result = [
+          `--- SECTION ---`,
+          `path: ${path}`,
+          `heading: ${section.heading}`,
+          `line-range: ${section.startLine}-${section.endLine}`,
+          `level: H${section.level}`,
+          `total-lines: ${section.totalLines}`,
+          ``,
+          section.content,
+        ].join("\n");
+        return { content: [{ type: "text", text: result }] };
       }
 
       case "read-document": {

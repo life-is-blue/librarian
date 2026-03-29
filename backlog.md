@@ -16,6 +16,7 @@ Implemented on `main`:
 3. B0-3 error contract cleanup in runtime and smoke checks.
 4. B1-1 list-structure pagination controls (`depth`, `cursor`, `limit`).
 5. B1-2 grep filters/pagination (`pathPrefix`, `caseSensitive`, `cursor`, `limit`).
+6. B1-3 heading-scoped drilldown via `read-section`.
 
 ## Delivery Rules
 
@@ -25,27 +26,26 @@ Implemented on `main`:
 
 ## Priority Backlog
 
-| ID | Priority | Task | Why | Acceptance Criteria |
-|---|---|---|---|---|
-| B0-1 | P0 | Add strict input validation (Zod) for all tools | Avoid malformed params and unstable tool behavior | Invalid args return clear errors; valid args unchanged; smoke test covers validation failures |
-| B0-2 | P0 | Introduce deterministic fixture dataset under `tests/fixtures/data-refined` | Current smoke test may skip and miss regressions | CI runs smoke without external data; all 5 tools are asserted on fixture |
-| B0-3 | P0 | Normalize error contract and remove stale guidance | Current messages still reference non-existent build pipeline in places | All user-facing errors reference real actions only; docs and tests updated |
-| B1-1 | P1 | Add `list-structure` controls (`depth`, `cursor`, `limit`) | Unbounded tree output does not scale | Large tree can be paged; response includes `hasMore` and next cursor |
-| B1-2 | P1 | Add `grep-knowledge` filters (`pathPrefix`, `caseSensitive`, `limit`, `cursor`) | Full scan output is too broad for large libraries | Filtered and paged grep works; backward compatible defaults preserved |
-| B1-3 | P1 | Add `read-section` tool (heading-based drilldown) | `peek + read full` wastes tokens for long docs | Can read by heading anchor; line range returned for provenance |
-| B1-4 | P1 | Precompute lightweight metadata index (`state/libraries.stats.json`) and use cache | Runtime currently rescans file trees repeatedly | `list-libraries` and stats avoid full rescans on every call; cache invalidation documented |
-| B1-5 | P1 | Add optional semantic skeleton extraction contract (`skeleton` sidecar or frontmatter field) | Agents should preview structure before full reads on long docs | `peek-document` can return skeleton summary when available without full content load |
-| B1-6 | P1 | Add exclusion rules (`.agentignore` / path denylist) for list+grep | Reduce retrieval noise and token waste from irrelevant files | Ignored paths are excluded consistently from `list-structure` and `grep-knowledge` |
-| B1-7 | P1 | Add source provenance URL in retrieval outputs | Strengthen citation honesty and operator trust | `grep`/`read` responses include canonical source reference when configured |
-| B2-1 | P1 | Add optional non-stdio transport (HTTP/SSE) with token auth | Primary use case includes personal private cloud agents | Remote transport works with auth token; stdio mode remains default |
-| B2-2 | P2 | Add structured observability (request id, latency, tool outcome) | Needed for operability and tuning | Logs include tool name, duration, status; can trace slow calls |
-| B2-3 | P2 | Performance hardening: async IO and optional `rg` backend for grep | Full synchronous scans will degrade at scale | Benchmark script added; grep latency reduced on large fixture corpus |
+| ID | Priority | Status | Task | Why | Acceptance Criteria |
+|---|---|---|---|---|---|
+| B0-1 | P0 | done | Add strict input validation (Zod) for all tools | Avoid malformed params and unstable tool behavior | Invalid args return clear errors; valid args unchanged; smoke test covers validation failures |
+| B0-2 | P0 | done | Introduce deterministic fixture dataset under `tests/fixtures/data-refined` | Current smoke test may skip and miss regressions | CI runs smoke without external data; all 5 tools are asserted on fixture |
+| B0-3 | P0 | done | Normalize error contract and remove stale guidance | Current messages still reference non-existent build pipeline in places | All user-facing errors reference real actions only; docs and tests updated |
+| B1-1 | P1 | done | Add `list-structure` controls (`depth`, `cursor`, `limit`) | Unbounded tree output does not scale | Large tree can be paged; response includes `hasMore` and next cursor |
+| B1-2 | P1 | done | Add `grep-knowledge` filters (`pathPrefix`, `caseSensitive`, `limit`, `cursor`) | Full scan output is too broad for large libraries | Filtered and paged grep works; backward compatible defaults preserved |
+| B1-3 | P1 | done | Add `read-section` tool (heading-based drilldown) | `peek + read full` wastes tokens for long docs | Can read by heading anchor; line range returned for provenance |
+| B1-4 | P1 | todo | Precompute lightweight metadata index (`state/libraries.stats.json`) and use cache | Runtime currently rescans file trees repeatedly | `list-libraries` and stats avoid full rescans on every call; cache invalidation documented |
+| B1-5 | P1 | todo | Add optional semantic skeleton extraction contract (`skeleton` sidecar or frontmatter field) | Agents should preview structure before full reads on long docs | `peek-document` can return skeleton summary when available without full content load |
+| B1-6 | P1 | todo | Add exclusion rules (`.agentignore` / path denylist) for list+grep | Reduce retrieval noise and token waste from irrelevant files | Ignored paths are excluded consistently from `list-structure` and `grep-knowledge` |
+| B1-7 | P1 | todo | Add source provenance URL in retrieval outputs | Strengthen citation honesty and operator trust | `grep`/`read` responses include canonical source reference when configured |
+| B2-1 | P1 | todo | Add optional non-stdio transport (HTTP/SSE) with token auth | Primary use case includes personal private cloud agents | Remote transport works with auth token; stdio mode remains default |
+| B2-2 | P2 | todo | Add structured observability (request id, latency, tool outcome) | Needed for operability and tuning | Logs include tool name, duration, status; can trace slow calls |
+| B2-3 | P2 | todo | Performance hardening: async IO and optional `rg` backend for grep | Full synchronous scans will degrade at scale | Benchmark script added; grep latency reduced on large fixture corpus |
 
 ## Suggested Execution Order
 
-1. B0-1 -> B0-2 -> B0-3
-2. B1-1 -> B1-2 -> B1-3 -> B1-4 -> B1-5 -> B1-6 -> B1-7
-3. B2-1 -> B2-2 -> B2-3
+1. B1-4 -> B1-5 -> B1-6 -> B1-7
+2. B2-1 -> B2-2 -> B2-3
 
 ## Scale Gates (Linus Guardrail)
 

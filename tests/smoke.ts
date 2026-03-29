@@ -1,4 +1,4 @@
-import { readdirSync, statSync, existsSync } from "fs";
+import { readFileSync, readdirSync, statSync, existsSync } from "fs";
 import { join, relative, resolve } from "path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -24,6 +24,18 @@ function findFirstMarkdownFile(rootPath: string): string | null {
     return null;
   };
   return walk(rootPath);
+}
+
+function findFirstHeading(filePath: string): string | null {
+  const content = readFileSync(filePath, "utf-8");
+  const lines = content.split("\n");
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("# ") || trimmed.startsWith("## ")) {
+      return trimmed.replace(/^#{1,6}\s+/, "").trim();
+    }
+  }
+  return null;
 }
 
 function extractText(result: { content: Array<{ type: string; text?: string }> }): string {
@@ -72,6 +84,7 @@ async function main() {
   let dataSource: "external" | "fixture" | null = null;
   let libraryId: string | null = null;
   let samplePath: string | null = null;
+  let sampleHeading: string | null = null;
 
   const candidates = [
     { dir: REFINED_DIR, source: "external" as const },
@@ -92,11 +105,14 @@ async function main() {
     const libraryRoot = join(candidate.dir, candidateLibraryId);
     const sampleAbsPath = findFirstMarkdownFile(libraryRoot);
     assert(sampleAbsPath, `no markdown files found in ${libraryRoot}`);
+    const heading = findFirstHeading(sampleAbsPath);
+    assert(heading, `no headings found in ${sampleAbsPath}`);
 
     dataRoot = candidate.dir;
     dataSource = candidate.source;
     libraryId = candidateLibraryId;
     samplePath = relative(libraryRoot, sampleAbsPath).split("\\").join("/");
+    sampleHeading = heading;
     break;
   }
 
@@ -131,6 +147,7 @@ async function main() {
       "list-structure",
       "grep-knowledge",
       "peek-document",
+      "read-section",
       "read-document"
     ]) {
       assert(toolNames.has(requiredTool), `missing tool: ${requiredTool}`);
@@ -150,7 +167,7 @@ async function main() {
       "unexpected arg"
     );
 
-    if (!dataRoot || !libraryId || !samplePath) {
+    if (!dataRoot || !libraryId || !samplePath || !sampleHeading) {
       console.log(
         `[smoke] SKIP: No libraries available under either '${REFINED_DIR}' or fixture path '${fixtureRefinedDir}'.`
       );
@@ -201,6 +218,25 @@ async function main() {
 
     const peekText = await callTool(client, "peek-document", { libraryId, path: samplePath });
     assert(peekText.includes("TOP 30 LINES"), "peek-document response missing preview section");
+
+    const sectionText = await callTool(client, "read-section", {
+      libraryId,
+      path: samplePath,
+      heading: sampleHeading,
+    });
+    assert(sectionText.includes("--- SECTION ---"), "read-section response missing section header");
+    assert(sectionText.includes("line-range:"), "read-section response missing line range");
+
+    const missingHeading = await callToolRaw(client, "read-section", {
+      libraryId,
+      path: samplePath,
+      heading: "__missing_heading__",
+    });
+    assertToolError(
+      missingHeading,
+      "Heading not found",
+      "missing heading"
+    );
 
     const missingDoc = await callToolRaw(client, "read-document", { libraryId, path: "__missing__.md" });
     assertToolError(
