@@ -3,6 +3,7 @@ node_modules/
 .DS_Store
 data/*
 !data/.gitkeep
+data-refined/
 dist/
 *.db
 *.log
