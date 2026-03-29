@@ -7,3 +7,4 @@ state/*
 !state/.gitkeep
 .env
 *.log
+bun.lock
