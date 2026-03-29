@@ -34,6 +34,10 @@ bun run smoke      # Run smoke tests (auto-falls back to tests/fixtures/data-ref
 | L3 | `peek-document` | H1/H2 anchors + first 30 lines |
 | L4 | `read-document` | Full content retrieval |
 
+Current optional params:
+- `list-structure`: `depth`, `cursor`, `limit`
+- `grep-knowledge`: `pathPrefix`, `caseSensitive`, `cursor`, `limit`
+
 ### Key Files
 
 - `src/index.ts` - MCP server entry point

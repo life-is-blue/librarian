@@ -14,6 +14,8 @@ Implemented on `main`:
 1. B0-1 strict tool argument validation (Zod + strict schemas).
 2. B0-2 smoke test fixture fallback (`tests/fixtures/data-refined`).
 3. B0-3 error contract cleanup in runtime and smoke checks.
+4. B1-1 list-structure pagination controls (`depth`, `cursor`, `limit`).
+5. B1-2 grep filters/pagination (`pathPrefix`, `caseSensitive`, `cursor`, `limit`).
 
 ## Delivery Rules
 

@@ -20,11 +20,22 @@ const server = new Server(
 );
 
 const nonEmptyString = z.string().trim().min(1, "must be a non-empty string");
+const positiveInt = z.number().int().min(1, "must be a positive integer");
+const nonNegativeInt = z.number().int().min(0, "must be a non-negative integer");
 const listLibrariesArgsSchema = z.object({}).strict();
-const listStructureArgsSchema = z.object({ libraryId: nonEmptyString }).strict();
+const listStructureArgsSchema = z.object({
+  libraryId: nonEmptyString,
+  depth: positiveInt.max(64).optional(),
+  cursor: nonNegativeInt.optional(),
+  limit: positiveInt.max(2000).optional(),
+}).strict();
 const grepKnowledgeArgsSchema = z.object({
   libraryId: nonEmptyString,
   query: nonEmptyString,
+  pathPrefix: nonEmptyString.optional(),
+  caseSensitive: z.boolean().optional(),
+  cursor: nonNegativeInt.optional(),
+  limit: positiveInt.max(500).optional(),
 }).strict();
 const documentArgsSchema = z.object({
   libraryId: nonEmptyString,
@@ -61,6 +72,13 @@ function ensureLibraryPath(libraryId: string): string {
   return libPath;
 }
 
+function formatRange(start: number, count: number): string {
+  if (count === 0) {
+    return "0-0";
+  }
+  return `${start + 1}-${start + count}`;
+}
+
 /**
  * 1. 声明工具列表
  */
@@ -80,7 +98,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       description: "L1: View the file tree structure of a specific library.",
       inputSchema: {
         type: "object",
-        properties: { libraryId: { type: "string", minLength: 1 } },
+        properties: {
+          libraryId: { type: "string", minLength: 1 },
+          depth: { type: "integer", minimum: 1, maximum: 64 },
+          cursor: { type: "integer", minimum: 0 },
+          limit: { type: "integer", minimum: 1, maximum: 2000 },
+        },
         required: ["libraryId"],
         additionalProperties: false,
       },
@@ -93,6 +116,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           libraryId: { type: "string", minLength: 1 },
           query: { type: "string", minLength: 1 },
+          pathPrefix: { type: "string", minLength: 1 },
+          caseSensitive: { type: "boolean" },
+          cursor: { type: "integer", minimum: 0 },
+          limit: { type: "integer", minimum: 1, maximum: 500 },
         },
         required: ["libraryId", "query"],
         additionalProperties: false,
@@ -149,17 +176,28 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "list-structure": {
-        const { libraryId } = parseArgs("list-structure", listStructureArgsSchema, args);
+        const { libraryId, depth, cursor, limit } = parseArgs("list-structure", listStructureArgsSchema, args);
         const libPath = ensureLibraryPath(libraryId);
-        return { content: [{ type: "text", text: listStructure(libPath) }] };
+        const response = listStructure(libPath, { depth, cursor, limit });
+        const header = [
+          `Tree lines ${formatRange(response.cursor, response.returnedCount)} of ${response.totalLines}.`,
+          `depth=${response.depth ?? "full"}, limit=${response.limit}, hasMore=${response.hasMore}${response.nextCursor !== null ? `, nextCursor=${response.nextCursor}` : ""}`,
+          ""
+        ].join("\n");
+        const body = response.lines.length > 0 ? response.lines.join("\n") : "(no entries)";
+        return { content: [{ type: "text", text: header + body }] };
       }
 
       case "grep-knowledge": {
-        const { libraryId, query } = parseArgs("grep-knowledge", grepKnowledgeArgsSchema, args);
+        const { libraryId, query, pathPrefix, caseSensitive, cursor, limit } = parseArgs("grep-knowledge", grepKnowledgeArgsSchema, args);
         const libPath = ensureLibraryPath(libraryId);
-        const response = grepKnowledge(libPath, query);
+        const response = grepKnowledge(libPath, query, { pathPrefix, caseSensitive, cursor, limit });
         const lines = response.matches.map(m => `${m.path}:${m.line}: ${m.content}`);
-        const header = `Found ${response.matches.length} matches in ${response.totalFiles} files${response.truncated ? " (truncated to 50)" : ""}:\n\n`;
+        const filterParts: string[] = [];
+        if (pathPrefix) filterParts.push(`pathPrefix='${pathPrefix}'`);
+        if (caseSensitive !== undefined) filterParts.push(`caseSensitive=${caseSensitive}`);
+        const filterSummary = filterParts.length > 0 ? `, filters: ${filterParts.join(", ")}` : "";
+        const header = `Matches ${formatRange(response.cursor, response.matches.length)} of ${response.totalMatches} in ${response.totalFiles} files${response.truncated ? ", hasMore=true" : ", hasMore=false"}${response.nextCursor !== null ? `, nextCursor=${response.nextCursor}` : ""}${filterSummary}:\n\n`;
         return { content: [{ type: "text", text: header + (lines.length > 0 ? lines.join("\n") : "No results found.") }] };
       }
 

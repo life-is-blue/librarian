@@ -169,9 +169,35 @@ async function main() {
 
     const structureText = await callTool(client, "list-structure", { libraryId });
     assert(structureText.length > 0, "list-structure returned empty response");
+    assert(structureText.includes("Tree lines "), "list-structure response missing pagination metadata");
+
+    const structurePagedText = await callTool(client, "list-structure", { libraryId, limit: 1, cursor: 0 });
+    assert(structurePagedText.includes("limit=1"), "list-structure limit option not reflected");
+    assert(structurePagedText.includes("hasMore="), "list-structure missing hasMore metadata");
 
     const grepText = await callTool(client, "grep-knowledge", { libraryId, query: "MCP" });
     assert(grepText.length > 0, "grep-knowledge returned empty response");
+    assert(grepText.includes("Matches "), "grep-knowledge response missing pagination metadata");
+
+    const grepPagedText = await callTool(client, "grep-knowledge", { libraryId, query: "MCP", limit: 1, cursor: 0 });
+    assert(grepPagedText.includes("of"), "grep-knowledge paged response missing total count");
+
+    if (dataSource === "fixture") {
+      const grepFilteredText = await callTool(client, "grep-knowledge", {
+        libraryId,
+        query: "MCP",
+        pathPrefix: "guides",
+        caseSensitive: true,
+      });
+      assert(grepFilteredText.includes("guides/"), "grep pathPrefix filter did not constrain result path");
+
+      const grepCaseSensitiveMiss = await callTool(client, "grep-knowledge", {
+        libraryId,
+        query: "mcp",
+        caseSensitive: true,
+      });
+      assert(grepCaseSensitiveMiss.includes("No results found."), "grep caseSensitive behavior mismatch");
+    }
 
     const peekText = await callTool(client, "peek-document", { libraryId, path: samplePath });
     assert(peekText.includes("TOP 30 LINES"), "peek-document response missing preview section");

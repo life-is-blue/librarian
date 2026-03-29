@@ -76,6 +76,17 @@ data-refined/
 
 If a library or document does not exist, tools return actionable error messages.
 
+## Tool Parameters (Current)
+
+- `list-structure`
+  - Required: `libraryId`
+  - Optional: `depth`, `cursor`, `limit`
+  - Behavior: paged tree response with `hasMore/nextCursor` metadata
+- `grep-knowledge`
+  - Required: `libraryId`, `query`
+  - Optional: `pathPrefix`, `caseSensitive`, `cursor`, `limit`
+  - Behavior: paged match response with total counts and optional filters
+
 ## References
 
 - Runtime entry: `src/index.ts`

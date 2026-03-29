@@ -88,15 +88,19 @@ No sync pipeline, standardizer pipeline, registry federation, or manifest genera
 | L3 | `peek-document` | Return H1/H2 anchors + first 30 lines |
 | L4 | `read-document` | Return full document |
 
+Current optional controls:
+1. `list-structure`: `depth`, `cursor`, `limit`
+2. `grep-knowledge`: `pathPrefix`, `caseSensitive`, `cursor`, `limit`
+
 ## 3. Current Constraints
 
 These are known runtime constraints in the present implementation:
 
 1. File operations are synchronous (blocking per request).
 2. Grep is full scan over Markdown files in target library.
-3. `list-structure` is unbounded (no depth/pagination).
+3. Default calls can still be broad if callers omit pagination controls.
 4. `peek-document` is fixed to first 30 lines (not section-aware).
-5. Smoke tests skip when `data-refined` is absent.
+5. Smoke uses fixture fallback when external `data-refined` is absent.
 
 ## 4. Planned Evolution (Roadmap)
 
