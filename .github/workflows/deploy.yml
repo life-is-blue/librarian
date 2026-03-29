@@ -1,0 +1,138 @@
+name: Deploy To VPS
+
+on:
+  workflow_run:
+    workflows: ["Librarian CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && secrets.VPS_HOST != '' && secrets.VPS_USER != '' && secrets.VPS_SSH_KEY != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          PORT="${VPS_PORT:-22}"
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf "%s\n" "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy with rollback
+        env:
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_PATH: ${{ vars.VPS_PATH }}
+          SERVICE_NAME: ${{ vars.VPS_SERVICE_NAME }}
+          ENV_FILE: ${{ vars.VPS_ENV_FILE }}
+          MCP_URL: ${{ vars.VPS_MCP_URL }}
+          HEALTH_URL: ${{ vars.VPS_HEALTH_URL }}
+        run: |
+          set -euo pipefail
+
+          PORT="${VPS_PORT:-22}"
+          REMOTE="${VPS_USER}@${VPS_HOST}"
+          DEPLOY_PATH="${VPS_PATH:-/opt/librarian}"
+          DEPLOY_SERVICE="${SERVICE_NAME:-librarian}"
+          DEPLOY_ENV_FILE="${ENV_FILE:-${DEPLOY_PATH}/.env.production}"
+          DEPLOY_MCP_URL="${MCP_URL:-http://127.0.0.1:3001/mcp}"
+          DEPLOY_HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:3001/health}"
+
+          ssh -p "$PORT" "$REMOTE" \
+            "TARGET_SHA='${TARGET_SHA}' VPS_PATH='${DEPLOY_PATH}' SERVICE_NAME='${DEPLOY_SERVICE}' ENV_FILE='${DEPLOY_ENV_FILE}' MCP_URL='${DEPLOY_MCP_URL}' HEALTH_URL='${DEPLOY_HEALTH_URL}' bash -s" <<'REMOTE_SCRIPT'
+          set -euo pipefail
+
+          TARGET_SHA="${TARGET_SHA:?missing TARGET_SHA}"
+          VPS_PATH="${VPS_PATH:?missing VPS_PATH}"
+          SERVICE_NAME="${SERVICE_NAME:-librarian}"
+          ENV_FILE="${ENV_FILE:-${VPS_PATH}/.env.production}"
+          MCP_URL="${MCP_URL:-http://127.0.0.1:3001/mcp}"
+          HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:3001/health}"
+
+          export PATH="$HOME/.bun/bin:$PATH"
+          command -v bun >/dev/null || { echo "bun not found in PATH"; exit 1; }
+          command -v git >/dev/null || { echo "git not found in PATH"; exit 1; }
+          command -v curl >/dev/null || { echo "curl not found in PATH"; exit 1; }
+          sudo -n true >/dev/null 2>&1 || { echo "sudo non-interactive permission is required"; exit 1; }
+
+          cd "$VPS_PATH"
+          PREV_SHA="$(git rev-parse HEAD)"
+          echo "Current commit: ${PREV_SHA}"
+          echo "Target commit:  ${TARGET_SHA}"
+
+          mcp_check() {
+            local payload
+            local code
+            payload='{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+
+            if [ -f "$ENV_FILE" ]; then
+              set -a
+              # shellcheck disable=SC1090
+              . "$ENV_FILE"
+              set +a
+            fi
+
+            if [ -n "${LIBRARIAN_MCP_TOKEN:-}" ]; then
+              code="$(curl -s -o /tmp/librarian-mcp-check.txt -w "%{http_code}" \
+                -X POST "$MCP_URL" \
+                -H "accept: application/json, text/event-stream" \
+                -H "content-type: application/json" \
+                -H "authorization: Bearer ${LIBRARIAN_MCP_TOKEN}" \
+                -d "$payload")"
+            else
+              code="$(curl -s -o /tmp/librarian-mcp-check.txt -w "%{http_code}" \
+                -X POST "$MCP_URL" \
+                -H "accept: application/json, text/event-stream" \
+                -H "content-type: application/json" \
+                -d "$payload")"
+            fi
+
+            if [ "$code" != "200" ]; then
+              echo "MCP tools/list validation failed with HTTP ${code}"
+              cat /tmp/librarian-mcp-check.txt || true
+              return 1
+            fi
+          }
+
+          deploy_target() {
+            git fetch origin
+            git checkout -f "$TARGET_SHA"
+            bun install
+            bun run smoke
+            sudo systemctl restart "$SERVICE_NAME"
+            sleep 2
+            curl -fsS "$HEALTH_URL" >/dev/null
+            mcp_check
+          }
+
+          rollback_prev() {
+            echo "Rolling back to commit: ${PREV_SHA}"
+            git checkout -f "$PREV_SHA"
+            bun install || true
+            sudo systemctl restart "$SERVICE_NAME"
+          }
+
+          if ! deploy_target; then
+            rollback_prev
+            exit 1
+          fi
+
+          echo "Deployment completed successfully."
+REMOTE_SCRIPT

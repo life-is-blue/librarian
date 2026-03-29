@@ -1,15 +1,15 @@
 name: Librarian CI
 
 on:
-  schedule:
-    - cron: "0 2 * * *"
-  workflow_dispatch:
   push:
     branches: [main]
+  pull_request:
+  workflow_dispatch:
 
 jobs:
-  runtime-and-data-prep:
+  smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -22,46 +22,7 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Optional source sync from CNB
-        env:
-          CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
-          CNB_BRANCH: data-raw
-        run: |
-          if [ -z "${CNB_TOKEN:-}" ]; then
-            echo "CNB_TOKEN is not configured; skip external raw sync."
-            exit 0
-          fi
-          git clone --depth 1 --branch "$CNB_BRANCH" "https://git:${CNB_TOKEN}@git.cnb.cool/ai-alchemy-factory/git-library.git" source
-
-      - name: Optional standardize stage
-        env:
-          LIBRARIAN_ALLOW_MOCK_LLM: ${{ vars.LIBRARIAN_USE_MOCK_LLM || '0' }}
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          LIBRARIAN_RAW_DIR: ./source
-          LIBRARIAN_REFINED_DIR: ./data-refined
-        run: |
-          if ! grep -q '"standardize"' package.json; then
-            echo "standardize script not present in this runtime-first repo; skip."
-            exit 0
-          fi
-          if [ ! -d source ]; then
-            echo "source directory is missing; skip standardize stage."
-            exit 0
-          fi
-          bun run standardize
-
-      - name: Optional manifest stage
-        env:
-          LIBRARIAN_RAW_DIR: ./source
-          LIBRARIAN_REFINED_DIR: ./data-refined
-        run: |
-          if ! grep -q '"manifest"' package.json; then
-            echo "manifest script not present in this runtime-first repo; skip."
-            exit 0
-          fi
-          bun run manifest
-
-      - name: Run smoke tests
+      - name: Run stdio smoke tests
         env:
           LIBRARIAN_REFINED_DIR: ./data-refined
         run: bun run smoke
@@ -82,12 +43,20 @@ jobs:
           }
           trap cleanup EXIT
 
+          READY=0
           for _ in $(seq 1 25); do
             if curl -sSf "http://127.0.0.1:${LIBRARIAN_PORT}/health" >/dev/null; then
+              READY=1
               break
             fi
             sleep 0.2
           done
+
+          if [ "$READY" -ne 1 ]; then
+            echo "HTTP server did not become ready in time"
+            cat /tmp/librarian-http.log || true
+            exit 1
+          fi
 
           for ID in 1 2; do
             CODE=$(curl -s -o "/tmp/http-${ID}.txt" -w "%{http_code}" \
@@ -110,14 +79,3 @@ jobs:
               exit 1
             fi
           done
-
-      - name: Upload refined artifacts when available
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: refined-data
-          path: |
-            data-refined/
-            state/
-          if-no-files-found: ignore
-          retention-days: 7
