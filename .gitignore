@@ -1,12 +1,9 @@
-# kilog build guards
+# Librarian
 node_modules/
 .DS_Store
-data/*
-!data/.gitkeep
+data/
 data-refined/
 state/*
 !state/.gitkeep
-dist/
-*.db
-*.log
 .env
+*.log

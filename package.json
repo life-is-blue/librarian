@@ -5,13 +5,9 @@
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
-    "sync": "bun src/aggregator/sync.ts",
-    "standardize": "bun src/standardizer/cli.ts",
-    "manifest": "bun src/hub/manifest-gen.ts",
-    "build": "bun run sync && bun run standardize && bun run manifest",
-    "smoke": "bun tests/smoke.ts",
     "start": "bun src/index.ts",
-    "dev": "bun --watch src/index.ts"
+    "dev": "bun --watch src/index.ts",
+    "smoke": "bun tests/smoke.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.5.0",
