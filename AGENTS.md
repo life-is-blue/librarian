@@ -13,6 +13,7 @@ Core philosophy: AI agents navigate, not search. Give them a map, they find fact
 ```bash
 bun install
 bun start          # Start MCP server (stdio transport)
+bun run start:http # Start MCP server (HTTP transport, endpoint /mcp)
 bun run smoke      # Run smoke tests (auto-falls back to tests/fixtures/data-refined)
 ```
 
@@ -21,6 +22,9 @@ bun run smoke      # Run smoke tests (auto-falls back to tests/fixtures/data-ref
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `LIBRARIAN_REFINED_DIR` | `./data-refined` | Knowledge base root directory |
+| `LIBRARIAN_PORT` | `3001` | HTTP server port for `start:http` |
+| `LIBRARIAN_HOST` | `127.0.0.1` | HTTP bind host for `start:http` |
+| `LIBRARIAN_MCP_TOKEN` | _empty_ | Optional Bearer token for HTTP MCP endpoint |
 
 ## Architecture
 
@@ -77,5 +81,5 @@ When tools fail, they provide actionable guidance:
 
 ## Scope Note
 
-Current local CLI scope is runtime-first (`start`, `dev`, `smoke`).
+Current local CLI scope is runtime-first (`start`, `start:http`, `dev`, `dev:http`, `smoke`).
 Data-prep ownership is this repository CI, not upstream.

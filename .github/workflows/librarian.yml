@@ -66,6 +66,51 @@ jobs:
           LIBRARIAN_REFINED_DIR: ./data-refined
         run: bun run smoke
 
+      - name: Run HTTP smoke tests
+        env:
+          LIBRARIAN_REFINED_DIR: ./data-refined
+          LIBRARIAN_PORT: "39001"
+        run: |
+          set -euo pipefail
+
+          bun run start:http > /tmp/librarian-http.log 2>&1 &
+          PID=$!
+
+          cleanup() {
+            kill "$PID" >/dev/null 2>&1 || true
+            wait "$PID" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          for _ in $(seq 1 25); do
+            if curl -sSf "http://127.0.0.1:${LIBRARIAN_PORT}/health" >/dev/null; then
+              break
+            fi
+            sleep 0.2
+          done
+
+          for ID in 1 2; do
+            CODE=$(curl -s -o "/tmp/http-${ID}.txt" -w "%{http_code}" \
+              -X POST "http://127.0.0.1:${LIBRARIAN_PORT}/mcp" \
+              -H "accept: application/json, text/event-stream" \
+              -H "content-type: application/json" \
+              -d "{\"jsonrpc\":\"2.0\",\"id\":${ID},\"method\":\"tools/list\",\"params\":{}}")
+
+            if [ "$CODE" != "200" ]; then
+              echo "HTTP smoke request ${ID} failed with status ${CODE}"
+              cat "/tmp/http-${ID}.txt" || true
+              cat /tmp/librarian-http.log || true
+              exit 1
+            fi
+
+            if ! grep -q '"tools"' "/tmp/http-${ID}.txt"; then
+              echo "HTTP smoke request ${ID} response missing tools payload"
+              cat "/tmp/http-${ID}.txt" || true
+              cat /tmp/librarian-http.log || true
+              exit 1
+            fi
+          done
+
       - name: Upload refined artifacts when available
         if: always()
         uses: actions/upload-artifact@v4

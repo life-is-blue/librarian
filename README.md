@@ -47,6 +47,7 @@ To prevent scope drift, this repository keeps one explicit target:
 This repository currently ships the MCP runtime layer:
 
 - MCP server over stdio (`bun start`)
+- MCP server over HTTP (`bun run start:http`, endpoint: `/mcp`)
 - Tool set:
   - `list-libraries`
   - `list-structure`
@@ -57,7 +58,7 @@ This repository currently ships the MCP runtime layer:
 - Serving root: `data-refined/<libraryId>`
 
 Data-preparation ownership is in this repository CI (`.github/workflows/librarian.yml`).
-Local runtime scripts are intentionally minimal right now (`start`, `dev`, `smoke`).
+Local runtime scripts are intentionally minimal right now (`start`, `start:http`, `dev`, `dev:http`, `smoke`).
 
 ## Quick Start
 
@@ -69,6 +70,13 @@ export LIBRARIAN_REFINED_DIR=./data-refined
 
 # Launch MCP server (stdio transport)
 bun start
+
+# Optional: launch MCP server for remote clients (HTTP transport)
+# Endpoint: http://127.0.0.1:3001/mcp
+bun run start:http
+
+# Optional: protect HTTP endpoint with a bearer token
+export LIBRARIAN_MCP_TOKEN=change-me
 
 # Smoke test (uses tests/fixtures/data-refined fallback if external data is absent)
 bun run smoke

@@ -59,7 +59,11 @@ The design target is agentic navigation, not one-shot semantic retrieval.
 
 ### 2.1 System Boundary
 
-This repository currently ships a **headless MCP server** over stdio.
+This repository currently ships a **headless MCP server** over:
+
+1. stdio transport (`bun start`)
+2. Streamable HTTP transport (`bun run start:http`, endpoint `/mcp`)
+
 It reads Markdown directly from a local serving root:
 
 ```text
@@ -68,6 +72,7 @@ data-refined/<library-id>/**
 
 No data-prep command is executed inside the request path.
 Runtime stays focused on deterministic serving from `data-refined`.
+For HTTP mode, optional bearer-token auth is enforced via `LIBRARIAN_MCP_TOKEN`.
 
 ### 2.2 Components
 
@@ -118,8 +123,7 @@ The following are architectural goals, not current behavior:
 2. Precomputed lightweight indexes (headings, metadata, file stats).
 3. Cursor/pagination and depth constraints for large libraries.
 4. Higher-level semantic summaries/skeletons to improve pre-read selection.
-5. Optional remote transport (HTTP/SSE) with auth for cloud deployment.
-6. Retrieval provenance enrichments (source URL and canonical references).
+5. Retrieval provenance enrichments (source URL and canonical references).
 
 ## 5. Design Principle
 
