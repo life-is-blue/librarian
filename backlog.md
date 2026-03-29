@@ -7,6 +7,14 @@ Last updated: 2026-03-29
 Current repository scope is a runtime MCP server for deterministic markdown navigation.
 Core philosophy remains unchanged: navigation-first, progressive disclosure, traceable retrieval.
 
+## Progress Snapshot
+
+Implemented on `main`:
+
+1. B0-1 strict tool argument validation (Zod + strict schemas).
+2. B0-2 smoke test fixture fallback (`tests/fixtures/data-refined`).
+3. B0-3 error contract cleanup in runtime and smoke checks.
+
 ## Delivery Rules
 
 1. Keep behavior deterministic and source-traceable.

@@ -13,7 +13,7 @@ Core philosophy: AI agents navigate, not search. Give them a map, they find fact
 ```bash
 bun install
 bun start          # Start MCP server (stdio transport)
-bun run smoke      # Run smoke tests
+bun run smoke      # Run smoke tests (auto-falls back to tests/fixtures/data-refined)
 ```
 
 ### Environment Variables

@@ -60,7 +60,7 @@ export LIBRARIAN_REFINED_DIR=./data-refined
 # Launch MCP server (stdio transport)
 bun start
 
-# Smoke test (requires data-refined to exist)
+# Smoke test (uses tests/fixtures/data-refined fallback if external data is absent)
 bun run smoke
 ```
 

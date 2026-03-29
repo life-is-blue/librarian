@@ -1,5 +1,5 @@
 import { readdirSync, statSync, existsSync } from "fs";
-import { join, relative } from "path";
+import { join, relative, resolve } from "path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { CallToolResultSchema, ListToolsResultSchema } from "@modelcontextprotocol/sdk/types.js";
@@ -66,24 +66,38 @@ function assertToolError(result: ToolResult, expectedSubstring: string, label: s
 
 async function main() {
   const cwd = process.cwd();
+  const fixtureRefinedDir = resolve(cwd, "tests/fixtures/data-refined");
 
-  let skipReason: string | null = null;
+  let dataRoot: string | null = null;
+  let dataSource: "external" | "fixture" | null = null;
   let libraryId: string | null = null;
   let samplePath: string | null = null;
 
-  if (!existsSync(REFINED_DIR)) {
-    skipReason = "No data found. Provide data under LIBRARIAN_REFINED_DIR (default: ./data-refined).";
-  } else {
-    const libraries = readdirSync(REFINED_DIR).filter(e => !e.startsWith("."));
-    if (libraries.length === 0) {
-      skipReason = "No libraries found in data-refined/. Ensure at least one <library-id>/ directory exists.";
-    } else {
-      libraryId = libraries[0];
-      const libraryRoot = join(REFINED_DIR, libraryId);
-      const sampleAbsPath = findFirstMarkdownFile(libraryRoot);
-      assert(sampleAbsPath, `no markdown files found in ${libraryRoot}`);
-      samplePath = relative(libraryRoot, sampleAbsPath).split("\\").join("/");
+  const candidates = [
+    { dir: REFINED_DIR, source: "external" as const },
+    { dir: fixtureRefinedDir, source: "fixture" as const }
+  ];
+
+  for (const candidate of candidates) {
+    if (!existsSync(candidate.dir)) {
+      continue;
     }
+
+    const libraries = readdirSync(candidate.dir).filter(e => !e.startsWith("."));
+    if (libraries.length === 0) {
+      continue;
+    }
+
+    const candidateLibraryId = libraries[0];
+    const libraryRoot = join(candidate.dir, candidateLibraryId);
+    const sampleAbsPath = findFirstMarkdownFile(libraryRoot);
+    assert(sampleAbsPath, `no markdown files found in ${libraryRoot}`);
+
+    dataRoot = candidate.dir;
+    dataSource = candidate.source;
+    libraryId = candidateLibraryId;
+    samplePath = relative(libraryRoot, sampleAbsPath).split("\\").join("/");
+    break;
   }
 
   const transport = new StdioClientTransport({
@@ -92,7 +106,7 @@ async function main() {
     cwd,
     stderr: "pipe",
     env: {
-      LIBRARIAN_REFINED_DIR: REFINED_DIR
+      LIBRARIAN_REFINED_DIR: dataRoot || REFINED_DIR
     }
   });
 
@@ -136,13 +150,19 @@ async function main() {
       "unexpected arg"
     );
 
-    if (skipReason) {
-      console.log(`[smoke] SKIP: ${skipReason}`);
+    if (!dataRoot || !libraryId || !samplePath) {
+      console.log(
+        `[smoke] SKIP: No libraries available under either '${REFINED_DIR}' or fixture path '${fixtureRefinedDir}'.`
+      );
       return;
     }
 
-    assert(libraryId, "libraryId should be available when skipReason is null");
-    assert(samplePath, "samplePath should be available when skipReason is null");
+    const missingLibrary = await callToolRaw(client, "list-structure", { libraryId: "__missing_lib__" });
+    assertToolError(
+      missingLibrary,
+      "not found under",
+      "missing library"
+    );
 
     const librariesText = await callTool(client, "list-libraries", {});
     assert(librariesText.includes(libraryId), `list-libraries did not include '${libraryId}'`);
@@ -156,10 +176,17 @@ async function main() {
     const peekText = await callTool(client, "peek-document", { libraryId, path: samplePath });
     assert(peekText.includes("TOP 30 LINES"), "peek-document response missing preview section");
 
+    const missingDoc = await callToolRaw(client, "read-document", { libraryId, path: "__missing__.md" });
+    assertToolError(
+      missingDoc,
+      "Document not found",
+      "missing document"
+    );
+
     const readText = await callTool(client, "read-document", { libraryId, path: samplePath });
     assert(readText.includes("#"), "read-document response did not include markdown body");
 
-    console.log(`[smoke] OK: library=${libraryId}, sample=${samplePath}`);
+    console.log(`[smoke] OK: source=${dataSource}, library=${libraryId}, sample=${samplePath}`);
   } finally {
     await transport.close();
   }
