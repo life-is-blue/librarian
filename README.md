@@ -1,44 +1,75 @@
 # librarian: The Librarian for Agents
 
-Agentic Search logic: **Navigating, not searching.**
-Stop hallucinating with vectors. Give your AI a map and a flashlight.
+Agentic Search logic: **navigating, not chunk recalling**.
+Give AI a map and deterministic tools, not opaque vector hits.
 
-## The Philosophy
+## Background
 
-1. **Navigate-First**: Vectors are fuzzy. Filenames and headings are facts.
-2. **Headless**: No UI. The index is the product.
-3. **Dumb Data, Smart Tools**: The knowledge is Markdown. The intelligence is in the MCP tools.
-4. **GitOps**: Your CI is your librarian. Commit -> Standardize -> Map -> Serve.
+Most AI knowledge stacks optimize for probabilistic recall (embedding + vector DB).
+This project is built for a different failure mode: when exact paths, versions, flags,
+and headings matter more than semantic proximity.
 
-## Architecture
+Librarian treats navigation as a first-class retrieval strategy:
 
-- **Registry**: Federated library list in `config/registry.json`.
-- **Standardizer**: LLM-powered Markdown cleaner. Normalizes raw Git/RSS content.
-- **MCP Hub**: Serve knowledge through Tool Context.
-  - `list-structure`: Map the terrain.
-  - `grep-knowledge`: High-precision keyword location.
-  - `peek-document`: Progressive disclosure of headings and summaries.
-  - `read-document`: The final drill-down.
+- Start with structure
+- Narrow by explicit coordinates
+- Read only what is needed
+- Preserve source traceability
+
+For the full rationale and design philosophy, see `docs/PHILOSOPHY.md`.
+
+## Philosophy
+
+1. **Navigate-First**: Filenames, headings, and line numbers are facts.
+2. **Progressive Disclosure**: Discover -> locate -> preview -> drill down.
+3. **Headless MCP Service**: No UI requirement; tools are the interface.
+4. **Deterministic Retrieval**: Filesystem + keyword matching over Markdown.
+
+## Current Scope (Implemented)
+
+This repository currently implements the MCP runtime layer only:
+
+- MCP server over stdio (`bun start`)
+- Tool set:
+  - `list-libraries`
+  - `list-structure`
+  - `grep-knowledge`
+  - `peek-document`
+  - `read-document`
+- Serving root: `data-refined/<libraryId>`
+
+Planned pipeline pieces like `sync / standardize / manifest` are not implemented in this repository yet.
 
 ## Quick Start
 
 ```bash
-# (optional) export LIBRARIAN_RAW_DIR=./data
-# (optional) export LIBRARIAN_REFINED_DIR=./data-refined
-# (optional) export LIBRARIAN_REGISTRY=./config/registry.json
-# (optional) export LLM_API_KEY=...
-# local-only fallback only: export LIBRARIAN_ALLOW_MOCK_LLM=1
+bun install
 
-# Sync + standardize + update state/libraries.stats.json
-bun run build
+# Optional: custom data root (default: ./data-refined)
+export LIBRARIAN_REFINED_DIR=./data-refined
 
-# Launch the MCP server
+# Launch MCP server (stdio transport)
 bun start
 
-# End-to-end smoke verification
+# Smoke test (requires data-refined to exist)
 bun run smoke
 ```
 
-## Why?
+## Data Contract
 
-Because AI is smarter than a cosine similarity score. Give it the tools to find facts, and it will stop lying to you.
+Expected filesystem layout:
+
+```text
+data-refined/
+  <library-id>/
+    ...markdown files...
+```
+
+If a library or document does not exist, tools return actionable error messages.
+
+## References
+
+- Runtime entry: `src/index.ts`
+- Navigation tools: `src/tools/navigation.ts`
+- Architecture notes: `docs/ARCHITECTURE.md`
+- Philosophy and design rationale: `docs/PHILOSOPHY.md`

@@ -2,113 +2,86 @@
 
 > "Bad programmers worry about the code. Good programmers worry about data structures and their relationships." — Linus Torvalds
 
-## 1. Core Philosophy
+## 0. Document Scope
 
-### The Problem with Traditional RAG
-Vector similarity search is a black-box approximation. It works for fuzzy matching but fails for **precise reasoning** where exact keywords, version numbers, and file paths matter.
+This document describes runtime architecture and implementation boundaries.
+For project motivation and design worldview, see `docs/PHILOSOPHY.md`.
 
-### Our Thesis
-AI Agents are smart enough to navigate. Give them:
-- A **map** (`list-structure`)
-- A **flashlight** (`grep-knowledge`)
-- Progressive disclosure tools (`peek-document`, `read-document`)
+## 1. Core Thesis
 
-They will find answers more accurately than any vector database.
+Traditional vector RAG is probabilistic. This project is intentionally deterministic:
 
-### The Pillars
+- Structure is truth (`list-structure`)
+- Keywords are coordinates (`grep-knowledge`)
+- Preview is a checkpoint (`peek-document`)
+- Full read is explicit (`read-document`)
 
-1. **Search is Failure**: Navigation succeeds before search is needed.
-2. **Context Density**: Skeletons (headings + summaries) over chunks.
-3. **Determinism over Probability**: Keywords, file paths, and headings are facts.
-4. **GitOps as Librarian**: CI pipeline standardizes and serves knowledge.
+The design target is agentic navigation, not one-shot semantic retrieval.
 
-## 2. Data Lifecycle
+## 2. Current Runtime (Implemented)
 
-Librarian treats data as a first-class citizen with provenance tracking.
+### 2.1 System Boundary
 
-### Directory Structure (not branches)
+This repository currently ships a **headless MCP server** over stdio.
+It reads Markdown directly from a local serving root:
 
-```
-project-root/
-├── data/                 # Raw upstream sources (immutable evidence)
-├── data-refined/         # Standardized output (MCP server reads from here)
-├── src/                  # Mechanism (code only)
-└── state/                # Generated index files
+```text
+data-refined/<library-id>/**
 ```
 
-**Key Rules**:
-- `data/`: Never manually edit. Raw evidence for audit.
-- `data-refined/`: Only automated scripts write here.
-- `src/`: Code only, keeping repo lightweight.
+No sync pipeline, standardizer pipeline, or manifest generator is currently implemented here.
 
-### Transformation Pipeline
+### 2.2 Components
 
-1. **Sync** (`bun run sync`): Pull raw content from Git repos.
-2. **Standardize** (`bun run standardize`): LLM adds frontmatter (intent, scope, keywords, summary).
-3. **Manifest** (`bun run manifest`): Generate `state/libraries.stats.json`.
+- `src/index.ts`
+  - MCP server bootstrap
+  - Tool schema declaration
+  - Tool routing and error mapping
+- `src/tools/navigation.ts`
+  - Tree listing
+  - Keyword scan with line numbers
+  - Preview extraction
+- `src/core/runtime.ts`
+  - Serving root resolution (`LIBRARIAN_REFINED_DIR`)
+  - Library discovery
+- `src/core/path.ts`
+  - Path traversal guard
 
-## 3. Agent-Oriented Tagging
-
-Documents in `data-refined/` follow a standardized frontmatter schema:
-
-```yaml
----
-intent: [setup, troubleshooting, api-ref, guide, reference]
-scope: [cli, terminal, ide-plugin, web, core]
-keywords: ["oauth-flow", "token-refresh", "silent-install"]
-summary: "One sentence under 100 words"
-source_hash: "sha256-of-original"
----
-```
-
-### Requirements
-- Headings must be descriptive: `## How to configure custom commands` > `## Configuration`
-- Each document must have complete frontmatter (enforced by standardizer)
-
-## 4. MCP Tool Architecture
-
-The Hub exposes 4 levels of progressive disclosure:
+### 2.3 Tool Contract (Progressive Disclosure)
 
 | Level | Tool | Purpose |
 |-------|------|---------|
-| L1 | `list-libraries` | Discover available repositories |
-| L2 | `list-structure` | View file tree of a library |
-| L3 | `grep-knowledge` | Search keywords with line numbers |
-| L4 | `peek-document` | Get headings + first 30 lines |
-| L5 | `read-document` | Full content retrieval |
+| L0 | `list-libraries` | Discover available libraries |
+| L1 | `list-structure` | Render directory map |
+| L2 | `grep-knowledge` | Locate keywords with `file:line` |
+| L3 | `peek-document` | Return H1/H2 anchors + first 30 lines |
+| L4 | `read-document` | Return full document |
 
-**Design Principle**: Force the Agent to make deliberate choices at each step, minimizing token waste from irrelevant content.
+## 3. Current Constraints
 
-## 5. Registry System
+These are known runtime constraints in the present implementation:
 
-Federated library configuration in `config/registry.json`:
+1. File operations are synchronous (blocking per request).
+2. Grep is full scan over Markdown files in target library.
+3. `list-structure` is unbounded (no depth/pagination).
+4. `peek-document` is fixed to first 30 lines (not section-aware).
+5. Smoke tests skip when `data-refined` is absent.
 
-```json
-{
-  "libraries": [
-    {
-      "id": "gemini-cli",
-      "name": "Gemini CLI Official Docs",
-      "url": "https://github.com/google-gemini/gemini-cli.git",
-      "branch": "main",
-      "source_subpath": "docs"
-    }
-  ]
-}
-```
+## 4. Planned Evolution (Roadmap)
 
-Each library is independently synced and standardized.
+The following are architectural goals, not current behavior:
 
-## 6. Environment Configuration
+1. Data pipeline (`sync`, `standardize`, `manifest`).
+2. Precomputed lightweight indexes (headings, metadata, file stats).
+3. Cursor/pagination and depth constraints for large libraries.
+4. Section-aware read APIs (`read-section` / heading-based drilldown).
+5. Optional remote transport (HTTP/SSE) with auth for cloud deployment.
 
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `LIBRARIAN_RAW_DIR` | `./data` | Raw content directory |
-| `LIBRARIAN_REFINED_DIR` | `./data-refined` | Standardized output |
-| `LIBRARIAN_REGISTRY` | `./config/registry.json` | Library registry path |
-| `LLM_API_KEY` | - | For standardizer LLM calls |
-| `LIBRARIAN_ALLOW_MOCK_LLM` | - | Fallback mock tags (local dev) |
+## 5. Design Principle
 
----
+The stack should remain explainable:
 
-*Goal: 100% Deterministic Navigation for AI Agents.*
+- Prefer explicit coordinates over semantic guesses.
+- Keep data format simple (Markdown first).
+- Add indexes only when they reduce latency without hiding provenance.
+- Preserve source traceability (`libraryId + path + line`) in outputs.

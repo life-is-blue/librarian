@@ -66,5 +66,10 @@ bun start
 
 When tools fail, they provide actionable guidance:
 
-- `Library 'xxx' not found` → Run build to download data
+- `Library 'xxx' not found` → Ensure `data-refined/<library-id>` exists and is mounted
 - `Document not found` → Use list-structure to see available files
+
+## Scope Note
+
+Current repository scope is runtime-only MCP serving. Pipeline commands such as
+`sync`, `standardize`, `manifest`, and `build` are roadmap items and are not implemented here yet.
