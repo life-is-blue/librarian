@@ -4,10 +4,11 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, readdirSync, statSync } from "fs";
+import { join } from "path";
 import { listStructure, grepKnowledge, peekDocument } from "./tools/navigation.js";
 import { safePath } from "./core/path.js";
-import { loadRegistry, loadStatsIndex, refinedLibraryPath } from "./core/runtime.js";
+import { listLibraries, refinedLibraryPath, REFINED_DIR } from "./core/runtime.js";
 
 /**
  * Librarian MCP Hub Server
@@ -18,13 +19,13 @@ const server = new Server(
 );
 
 /**
- * 1. 声明工具列表 (L0 Catalog 已经由 Standardizer 打好基础)
+ * 1. 声明工具列表
  */
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
       name: "list-libraries",
-      description: "List all connected knowledge repositories (LIBRARIES).",
+      description: "List all available knowledge libraries. Returns directory names from data-refined/.",
       inputSchema: {
         type: "object",
         properties: {},
@@ -85,63 +86,61 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   try {
-    const registry = loadRegistry();
-    const statsByLibrary = loadStatsIndex();
     const libraryId = args?.libraryId as string | undefined;
-    const library = libraryId ? registry.libraries.find((item) => item.id === libraryId) : null;
 
     switch (name) {
-      case "list-libraries":
+      case "list-libraries": {
+        const libraries = listLibraries();
+        const result = libraries.map(id => {
+          const libPath = refinedLibraryPath(id);
+          const stats = existsSync(libPath) ? getLibStats(libPath) : null;
+          return { id, stats };
+        });
         return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                registry.libraries.map((item) => ({
-                  id: item.id,
-                  name: item.name,
-                  branch: item.branch,
-                  source_subpath: item.source_subpath,
-                  stats: statsByLibrary.get(item.id) || null
-                })),
-                null,
-                2
-              )
-            }
-          ]
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
         };
+      }
 
       case "list-structure": {
         if (!libraryId) throw new Error("libraryId is required");
-        if (!library) throw new Error(`Library not found: ${libraryId}`);
-        const libPath = refinedLibraryPath(library.id);
-        if (!existsSync(libPath)) throw new Error(`Library path not found: ${libPath}`);
+        const libPath = refinedLibraryPath(libraryId);
+        if (!existsSync(libPath)) {
+          throw new Error(`Library '${libraryId}' not found. Run 'bun run build' to download data.`);
+        }
         return { content: [{ type: "text", text: listStructure(libPath) }] };
       }
 
       case "grep-knowledge": {
         if (!libraryId) throw new Error("libraryId is required");
-        if (!library) throw new Error(`Library not found: ${libraryId}`);
-        const libPath = refinedLibraryPath(library.id);
-        if (!existsSync(libPath)) throw new Error(`Library path not found: ${libPath}`);
-        const matches = grepKnowledge(libPath, String(args?.query));
-        return { content: [{ type: "text", text: matches.length > 0 ? matches.join("\n") : "No results found." }] };
+        const libPath = refinedLibraryPath(libraryId);
+        if (!existsSync(libPath)) {
+          throw new Error(`Library '${libraryId}' not found. Run 'bun run build' to download data.`);
+        }
+        const response = grepKnowledge(libPath, String(args?.query));
+        const lines = response.matches.map(m => `${m.path}:${m.line}: ${m.content}`);
+        const header = `Found ${response.matches.length} matches in ${response.totalFiles} files${response.truncated ? " (truncated to 50)" : ""}:\n\n`;
+        return { content: [{ type: "text", text: header + (lines.length > 0 ? lines.join("\n") : "No results found.") }] };
       }
 
       case "peek-document": {
         if (!libraryId) throw new Error("libraryId is required");
-        if (!library) throw new Error(`Library not found: ${libraryId}`);
-        const libPath = refinedLibraryPath(library.id);
-        if (!existsSync(libPath)) throw new Error(`Library path not found: ${libPath}`);
+        const libPath = refinedLibraryPath(libraryId);
+        if (!existsSync(libPath)) {
+          throw new Error(`Library '${libraryId}' not found. Run 'bun run build' to download data.`);
+        }
         return { content: [{ type: "text", text: peekDocument(libPath, String(args?.path)) }] };
       }
 
       case "read-document": {
         if (!libraryId) throw new Error("libraryId is required");
-        if (!library) throw new Error(`Library not found: ${libraryId}`);
-        const libPath = refinedLibraryPath(library.id);
-        if (!existsSync(libPath)) throw new Error(`Library path not found: ${libPath}`);
+        const libPath = refinedLibraryPath(libraryId);
+        if (!existsSync(libPath)) {
+          throw new Error(`Library '${libraryId}' not found. Run 'bun run build' to download data.`);
+        }
         const fullDocPath = safePath(libPath, String(args?.path));
+        if (!existsSync(fullDocPath)) {
+          throw new Error(`Document not found: ${args?.path}. Use list-structure to see available files.`);
+        }
         return { content: [{ type: "text", text: readFileSync(fullDocPath, "utf-8") }] };
       }
 
@@ -155,6 +154,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     };
   }
 });
+
+function getLibStats(libPath: string): { fileCount: number } {
+  let count = 0;
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir)) {
+      const path = join(dir, entry);
+      if (statSync(path).isDirectory()) {
+        walk(path);
+      } else if (entry.endsWith(".md")) {
+        count++;
+      }
+    }
+  };
+  walk(libPath);
+  return { fileCount: count };
+}
 
 /**
  * 3. 启动 Server
