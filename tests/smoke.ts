@@ -33,14 +33,23 @@ function extractText(result: { content: Array<{ type: string; text?: string }> }
     .join("\n");
 }
 
-async function callTool(client: Client, name: string, args: Record<string, unknown>): Promise<string> {
-  const result = await client.request(
+type ToolResult = {
+  content: Array<{ type: string; text?: string }>;
+  isError?: boolean;
+};
+
+async function callToolRaw(client: Client, name: string, args: Record<string, unknown>): Promise<ToolResult> {
+  return client.request(
     {
       method: "tools/call",
       params: { name, arguments: args }
     },
     CallToolResultSchema
   );
+}
+
+async function callTool(client: Client, name: string, args: Record<string, unknown>): Promise<string> {
+  const result = await callToolRaw(client, name, args);
 
   if (result.isError) {
     throw new Error(`${name} failed: ${extractText(result)}`);
@@ -49,26 +58,33 @@ async function callTool(client: Client, name: string, args: Record<string, unkno
   return extractText(result);
 }
 
+function assertToolError(result: ToolResult, expectedSubstring: string, label: string) {
+  assert(result.isError === true, `${label}: expected error result`);
+  const text = extractText(result);
+  assert(text.includes(expectedSubstring), `${label}: unexpected error text: ${text}`);
+}
+
 async function main() {
   const cwd = process.cwd();
 
-  // Check if data exists
+  let skipReason: string | null = null;
+  let libraryId: string | null = null;
+  let samplePath: string | null = null;
+
   if (!existsSync(REFINED_DIR)) {
-    console.log("[smoke] SKIP: No data found. Provide data under LIBRARIAN_REFINED_DIR (default: ./data-refined).");
-    return;
+    skipReason = "No data found. Provide data under LIBRARIAN_REFINED_DIR (default: ./data-refined).";
+  } else {
+    const libraries = readdirSync(REFINED_DIR).filter(e => !e.startsWith("."));
+    if (libraries.length === 0) {
+      skipReason = "No libraries found in data-refined/. Ensure at least one <library-id>/ directory exists.";
+    } else {
+      libraryId = libraries[0];
+      const libraryRoot = join(REFINED_DIR, libraryId);
+      const sampleAbsPath = findFirstMarkdownFile(libraryRoot);
+      assert(sampleAbsPath, `no markdown files found in ${libraryRoot}`);
+      samplePath = relative(libraryRoot, sampleAbsPath).split("\\").join("/");
+    }
   }
-
-  const libraries = readdirSync(REFINED_DIR).filter(e => !e.startsWith("."));
-  if (libraries.length === 0) {
-    console.log("[smoke] SKIP: No libraries found in data-refined/. Ensure at least one <library-id>/ directory exists.");
-    return;
-  }
-
-  const libraryId = libraries[0];
-  const libraryRoot = join(REFINED_DIR, libraryId);
-  const sampleAbsPath = findFirstMarkdownFile(libraryRoot);
-  assert(sampleAbsPath, `no markdown files found in ${libraryRoot}`);
-  const samplePath = relative(libraryRoot, sampleAbsPath).split("\\").join("/");
 
   const transport = new StdioClientTransport({
     command: "bun",
@@ -105,6 +121,28 @@ async function main() {
     ]) {
       assert(toolNames.has(requiredTool), `missing tool: ${requiredTool}`);
     }
+
+    const invalidMissingRequired = await callToolRaw(client, "list-structure", {});
+    assertToolError(
+      invalidMissingRequired,
+      "Invalid arguments for 'list-structure'",
+      "missing required arg"
+    );
+
+    const invalidUnexpectedField = await callToolRaw(client, "list-libraries", { unexpected: true });
+    assertToolError(
+      invalidUnexpectedField,
+      "Invalid arguments for 'list-libraries'",
+      "unexpected arg"
+    );
+
+    if (skipReason) {
+      console.log(`[smoke] SKIP: ${skipReason}`);
+      return;
+    }
+
+    assert(libraryId, "libraryId should be available when skipReason is null");
+    assert(samplePath, "samplePath should be available when skipReason is null");
 
     const librariesText = await callTool(client, "list-libraries", {});
     assert(librariesText.includes(libraryId), `list-libraries did not include '${libraryId}'`);
