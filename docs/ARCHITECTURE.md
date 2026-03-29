@@ -12,25 +12,25 @@ For project motivation and design worldview, see `docs/PHILOSOPHY.md`.
 Primary target is a **personal private cloud knowledge service**:
 
 1. One owner curates and controls knowledge sources.
-2. Upstream pipeline prepares markdown artifacts.
+2. This repository CI prepares or refreshes markdown artifacts into `data-refined`.
 3. Librarian runtime serves those artifacts to agent clients via MCP.
 
 ## 0.2 Out of Scope (This Repository)
 
 The following are intentionally outside this runtime codebase:
 
-1. Upstream sync/crawl from source repositories.
-2. LLM standardization/tagging pipelines.
-3. Registry federation/orchestration logic.
-4. Multi-tenant account or ACL systems.
+1. UI product surface and end-user interaction layers.
+2. Vector ranking infrastructure and embedding management.
+3. Multi-tenant account or ACL systems.
+4. Complex cross-repo orchestration frameworks.
 
 ## 0.3 External Dependency Boundary
 
-Upstream project(s) such as `git-library` are responsible for:
+This repository CI is responsible for data-preparation ownership:
 
-1. Fetching/syncing raw content from upstream sources.
-2. Standardizing documents into refined markdown artifacts.
-3. Publishing/refreshing `data-refined` content.
+1. Pulling/syncing raw inputs when configured.
+2. Running standardization/manifest stages when pipeline scripts are available.
+3. Publishing/refreshing `data-refined` artifacts for runtime serving.
 
 This repository is responsible for:
 
@@ -60,7 +60,8 @@ It reads Markdown directly from a local serving root:
 data-refined/<library-id>/**
 ```
 
-No sync pipeline, standardizer pipeline, registry federation, or manifest generator is implemented here.
+No data-prep command is executed inside the request path.
+Runtime stays focused on deterministic serving from `data-refined`.
 
 ### 2.2 Components
 
@@ -107,7 +108,7 @@ These are known runtime constraints in the present implementation:
 
 The following are architectural goals, not current behavior:
 
-1. Artifact compatibility checks for upstream-produced data-refined snapshots.
+1. Artifact compatibility checks for CI-produced `data-refined` snapshots.
 2. Precomputed lightweight indexes (headings, metadata, file stats).
 3. Cursor/pagination and depth constraints for large libraries.
 4. Higher-level semantic summaries/skeletons to improve pre-read selection.

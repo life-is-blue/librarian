@@ -48,7 +48,7 @@ Current optional params:
 ## Data Flow
 
 ```
-data-refined/      ← Downloaded from CI artifacts or git clone --branch data-refined
+data-refined/      ← Produced/refreshed by this repo CI (or mounted locally)
     └── [library]/
          └── *.md   ← Markdown files with frontmatter
     ↓ bun start
@@ -57,11 +57,12 @@ MCP Hub (stdio) → AI Agent tools
 
 ## Deployment
 
-Librarian is designed as a headless MCP server. Data is prepared by CI and downloaded separately.
+Librarian is designed as a headless MCP server. Runtime reads local `data-refined/`.
+This repository CI owns data-preparation orchestration while upstream is incomplete.
 
 ```bash
-# Download data from artifacts or clone
-git clone --branch data-refined https://git.cnb.cool/.../git-library.git data-refined
+# Option A: use CI-produced artifacts
+# Option B: mount or sync an existing data-refined snapshot locally
 
 # Start server
 bun start
@@ -76,6 +77,5 @@ When tools fail, they provide actionable guidance:
 
 ## Scope Note
 
-Current repository scope is runtime-only MCP serving. Pipeline commands such as
-`sync`, `standardize`, `manifest`, and `build` are roadmap items and are not implemented here yet.
-These are expected to be handled by upstream data pipeline projects (for example `git-library`).
+Current local CLI scope is runtime-first (`start`, `dev`, `smoke`).
+Data-prep ownership is this repository CI, not upstream.

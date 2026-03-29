@@ -17,6 +17,7 @@ Implemented on `main`:
 4. B1-1 list-structure pagination controls (`depth`, `cursor`, `limit`).
 5. B1-2 grep filters/pagination (`pathPrefix`, `caseSensitive`, `cursor`, `limit`).
 6. B1-3 heading-scoped drilldown via `read-section`.
+7. B0-4 CI pipeline hardening for runtime-first execution and optional data-prep stages.
 
 ## Delivery Rules
 
@@ -29,8 +30,9 @@ Implemented on `main`:
 | ID | Priority | Status | Task | Why | Acceptance Criteria |
 |---|---|---|---|---|---|
 | B0-1 | P0 | done | Add strict input validation (Zod) for all tools | Avoid malformed params and unstable tool behavior | Invalid args return clear errors; valid args unchanged; smoke test covers validation failures |
-| B0-2 | P0 | done | Introduce deterministic fixture dataset under `tests/fixtures/data-refined` | Current smoke test may skip and miss regressions | CI runs smoke without external data; all 5 tools are asserted on fixture |
+| B0-2 | P0 | done | Introduce deterministic fixture dataset under `tests/fixtures/data-refined` | Current smoke test may skip and miss regressions | CI runs smoke without external data; all 6 tools are asserted on fixture |
 | B0-3 | P0 | done | Normalize error contract and remove stale guidance | Current messages still reference non-existent build pipeline in places | All user-facing errors reference real actions only; docs and tests updated |
+| B0-4 | P0 | done | Harden repository CI so runtime checks are always runnable | Existing CI path can fail on missing secrets/scripts before reaching smoke | CI runs `bun run smoke` reliably; external sync/data-prep stages are optional and non-blocking when unavailable |
 | B1-1 | P1 | done | Add `list-structure` controls (`depth`, `cursor`, `limit`) | Unbounded tree output does not scale | Large tree can be paged; response includes `hasMore` and next cursor |
 | B1-2 | P1 | done | Add `grep-knowledge` filters (`pathPrefix`, `caseSensitive`, `limit`, `cursor`) | Full scan output is too broad for large libraries | Filtered and paged grep works; backward compatible defaults preserved |
 | B1-3 | P1 | done | Add `read-section` tool (heading-based drilldown) | `peek + read full` wastes tokens for long docs | Can read by heading anchor; line range returned for provenance |

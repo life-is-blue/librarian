@@ -22,7 +22,8 @@ For the full rationale and design philosophy, see `docs/PHILOSOPHY.md`.
 
 Personal private knowledge service for one owner:
 
-- Content is prepared upstream (for example by `git-library` sync/standardize flows)
+- Raw content can come from external sources (for example `git-library`)
+- Standardization/artifact refresh is owned by this repository's CI workflow (upstream is not complete yet)
 - This repository serves refined markdown to agents through MCP tools
 - Deployment target is a personal VPS/domain where multiple agent clients can connect
 
@@ -35,7 +36,7 @@ Personal private knowledge service for one owner:
 
 ## Current Scope (Implemented)
 
-This repository currently implements the MCP runtime layer only:
+This repository currently ships the MCP runtime layer:
 
 - MCP server over stdio (`bun start`)
 - Tool set:
@@ -47,8 +48,8 @@ This repository currently implements the MCP runtime layer only:
   - `read-document`
 - Serving root: `data-refined/<libraryId>`
 
-Pipeline pieces like `sync / standardize / manifest` are handled by upstream data pipelines
-(for example `git-library`) and are out of scope for this repository.
+Data-preparation ownership is in this repository CI (`.github/workflows/librarian.yml`).
+Local runtime scripts are intentionally minimal right now (`start`, `dev`, `smoke`).
 
 ## Quick Start
 

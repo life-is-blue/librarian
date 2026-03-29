@@ -68,8 +68,8 @@ Each step controls token cost and prevents premature overloading of context.
 
 ## 5. Long-Term Direction
 
-The long-term architecture may include sync/standardize/manifest pipelines and
-lightweight indexes, but the contract remains the same:
+The long-term architecture may include richer CI data-prep stages
+(sync/standardize/manifest hardening) and lightweight indexes, but the contract remains the same:
 
 - preserve deterministic navigation
 - preserve source traceability
