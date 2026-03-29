@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "start": "bun src/index.ts",
+    "start:http": "bun src/http.ts",
     "dev": "bun --watch src/index.ts",
+    "dev:http": "bun --watch src/http.ts",
     "smoke": "bun tests/smoke.ts"
   },
   "dependencies": {
