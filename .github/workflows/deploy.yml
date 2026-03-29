@@ -152,4 +152,4 @@ jobs:
           fi
 
           echo "Deployment completed successfully."
-REMOTE_SCRIPT
+          REMOTE_SCRIPT
