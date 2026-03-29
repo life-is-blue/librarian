@@ -1,0 +1,57 @@
+name: Librarian GitOps Pipeline
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 每天凌晨 2 点自动运行
+  workflow_dispatch:        # 手动触发
+  push:
+    branches: [main]
+
+jobs:
+  standardize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone source data from CNB
+        env:
+          CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
+          CNB_REPO: https://git.cnb.cool/ai-alchemy-factory/git-library.git
+          CNB_BRANCH: data-raw
+        run: |
+          git clone --depth 1 --branch $CNB_BRANCH https://git:${CNB_TOKEN}@git.cnb.cool/ai-alchemy-factory/git-library.git source
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Standardize documents
+        env:
+          LIBRARIAN_ALLOW_MOCK_LLM: ${{ vars.LIBRARIAN_USE_MOCK_LLM || '0' }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LIBRARIAN_RAW_DIR: ./source
+          LIBRARIAN_REFINED_DIR: ./data-refined
+        run: bun run standardize
+
+      - name: Generate manifest
+        env:
+          LIBRARIAN_RAW_DIR: ./source
+          LIBRARIAN_REFINED_DIR: ./data-refined
+        run: bun run manifest
+
+      - name: Run smoke tests
+        env:
+          LIBRARIAN_RAW_DIR: ./source
+          LIBRARIAN_REFINED_DIR: ./data-refined
+        run: bun run smoke
+
+      - name: Upload refined artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: refined-data
+          path: |
+            data-refined/
+            state/
+          retention-days: 7
