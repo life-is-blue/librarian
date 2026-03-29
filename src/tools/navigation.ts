@@ -1,9 +1,10 @@
-import { join, relative, resolve } from "path";
+import { join, relative, resolve, sep } from "path";
 import { readdirSync, readFileSync, statSync } from "fs";
 
 function safePath(basePath: string, userPath: string): string {
-  const resolved = resolve(basePath, userPath);
-  if (!resolved.startsWith(basePath)) {
+  const resolvedBase = resolve(basePath);
+  const resolved = resolve(resolvedBase, userPath);
+  if (resolved !== resolvedBase && !resolved.startsWith(`${resolvedBase}${sep}`)) {
     throw new Error(`Path traversal detected: ${userPath}`);
   }
   return resolved;
@@ -74,5 +75,5 @@ export function peekDocument(basePath: string, userPath: string): string {
     
   const preview = lines.slice(0, 30).join("\n");
   
-  return `--- STRUCTURE ---\n${headers.join("\n")}\n\n--- TOP 30 LINES ---\n${preview}\n\n[System Note: Use read_document to fetch full content if needed.]`;
+  return `--- STRUCTURE ---\n${headers.join("\n")}\n\n--- TOP 30 LINES ---\n${preview}\n\n[System Note: Use read-document to fetch full content if needed.]`;
 }

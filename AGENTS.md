@@ -25,6 +25,7 @@ bun dev
 
 - `LLM_API_KEY` - Required for standardizer (OpenAI-compatible API)
 - `LLM_BASE_URL` - Optional, defaults to `https://api.openai.com/v1`
+- `LIBRARIAN_ALLOW_MOCK_LLM` - Optional (`1` to allow mock tags when `LLM_API_KEY` is missing; default is fail-fast)
 
 ## Architecture
 
@@ -34,11 +35,11 @@ The MCP Hub exposes 5 tools across 4 levels:
 
 | Level | Tool | Purpose |
 |-------|------|---------|
-| L0 | `list_libraries` | List registered repositories from registry.json |
-| L1 | `list_structure` | ASCII tree visualization (The Map) |
-| L2 | `grep_knowledge` | Case-insensitive keyword search with `file:line:content` format (max 50 results) |
-| L3 | `peek_document` | H1/H2 anchors + first 30 lines preview |
-| L4 | `read_document` | Full content drill-down |
+| L0 | `list-libraries` | List registered repositories from registry.json |
+| L1 | `list-structure` | ASCII tree visualization (The Map) |
+| L2 | `grep-knowledge` | Case-insensitive keyword search with `file:line:content` format (max 50 results) |
+| L3 | `peek-document` | H1/H2 anchors + first 30 lines preview |
+| L4 | `read-document` | Full content drill-down |
 
 ### Key Files
 
@@ -83,7 +84,7 @@ The standardizer is idempotent - skips files already containing all four frontma
 ```
 data/ (raw markdown)
     ↓ bun standardize
-data/ (standardized markdown with frontmatter)
+data-refined/ (standardized markdown with frontmatter)
     ↓ bun start
 MCP Hub (stdio) → AI Agent tools
 ```
@@ -98,6 +99,5 @@ MCP Hub (stdio) → AI Agent tools
 ## Notes
 
 - `data/` is gitignored except `.gitkeep` - knowledge content is not versioned
-- `src/hub/` directory exists but is empty - manifest generation script referenced in CI is not implemented
-- SQLite dependency is declared but not actively used in current implementation
+- MCP runtime reads `data-refined/<libraryId>` as the serving root (not raw source paths)
 - No test suite configured

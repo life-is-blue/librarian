@@ -4,13 +4,14 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { join, resolve } from "path";
+import { join, resolve, sep } from "path";
 import { readFileSync, existsSync } from "fs";
 import { listStructure, grepKnowledge, peekDocument } from "./tools/navigation.js";
 
 function safePath(basePath: string, userPath: string): string {
-  const resolved = resolve(basePath, userPath);
-  if (!resolved.startsWith(basePath)) {
+  const resolvedBase = resolve(basePath);
+  const resolved = resolve(resolvedBase, userPath);
+  if (resolved !== resolvedBase && !resolved.startsWith(`${resolvedBase}${sep}`)) {
     throw new Error(`Path traversal detected: ${userPath}`);
   }
   return resolved;
@@ -35,6 +36,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "list-libraries",
       description: "List all connected knowledge repositories (LIBRARIES).",
+      inputSchema: {
+        type: "object",
+        properties: {},
+      },
     },
     {
       name: "list-structure",
@@ -98,8 +103,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (libraryId && !library) {
       throw new Error(`Library not found: ${libraryId}`);
     }
-    
-    const libPath = library ? join(process.cwd(), library.path) : DATA_DIR;
+
+    const libPath = library ? join(DATA_DIR, library.id) : DATA_DIR;
+    if (!existsSync(libPath)) {
+      throw new Error(`Library path not found: ${libPath}`);
+    }
 
     switch (name) {
       case "list-libraries":

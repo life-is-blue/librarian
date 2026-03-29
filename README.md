@@ -15,17 +15,20 @@ Stop hallucinating with vectors. Give your AI a map and a flashlight.
 - **Registry**: Federated library list in `config/registry.json`.
 - **Standardizer**: LLM-powered Markdown cleaner. Normalizes raw Git/RSS content.
 - **MCP Hub**: Serve knowledge through Tool Context.
-  - `list_structure`: Map the terrain.
-  - `grep_knowledge`: High-precision keyword location.
-  - `peek_document`: Progressive disclosure of headings and summaries.
-  - `read_content`: The final drill-down.
+  - `list-structure`: Map the terrain.
+  - `grep-knowledge`: High-precision keyword location.
+  - `peek-document`: Progressive disclosure of headings and summaries.
+  - `read-document`: The final drill-down.
 
 ## Quick Start
 
 ```bash
 # Clone your knowledge repos to ./data
-# Run the standardizer
-bun standardize
+# (optional) export LLM_API_KEY=...
+# local-only fallback: export LIBRARIAN_ALLOW_MOCK_LLM=1
+
+# Sync + standardize + update registry stats
+bun run build
 
 # Launch the MCP server
 bun start

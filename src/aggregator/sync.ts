@@ -1,5 +1,5 @@
 import { spawnSync } from "child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync, readdirSync, statSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 
 const REGISTRY_PATH = process.env.LIBRARIAN_REGISTRY || join(process.cwd(), "config", "registry.json");
@@ -11,25 +11,6 @@ function runGit(args: string[], cwd?: string): string {
     throw new Error(`git ${args.join(" ")} failed: ${result.stderr}`);
   }
   return result.stdout.trim();
-}
-
-function cleanExcept(basePath: string, keepPath: string) {
-  // 删除除了 keepPath 以外的所有内容
-  const entries = readdirSync(basePath);
-  for (const entry of entries) {
-    if (entry === ".git" || entry === ".ref") continue;
-    if (entry !== keepPath) {
-      rmSync(join(basePath, entry), { recursive: true, force: true });
-    }
-  }
-  // 如果 keepPath 不是 "."，把内容移到根目录
-  if (keepPath !== "." && existsSync(join(basePath, keepPath))) {
-    const subDir = join(basePath, keepPath);
-    const entries = readdirSync(subDir);
-    for (const entry of entries) {
-      // 移动到上级
-    }
-  }
 }
 
 async function syncAll() {
